@@ -208,6 +208,7 @@ enum WasmResultValues {
 function CHECK_RESULT(c: WasmResult): void {
   if (c != WasmResultValues.Ok) {
     log(LogLevelValues.critical, c.toString());
+    // from the docs: exceptions are not supported, and will abort
     throw new Error(":(");
   }
 }
@@ -228,10 +229,10 @@ class ArrayBufferReference {
   }
 
   sizePtr(): usize {
-    return changetype<usize>(this) + offsetof<this>("size");
+    return changetype<usize>(this) + offsetof<ArrayBufferReference>("size");
   }
   bufferPtr(): CharPtr {
-    return changetype<usize>(this) + offsetof<this>("buffer");
+    return changetype<usize>(this) + offsetof<ArrayBufferReference>("buffer");
   }
 
   // Before calling methods below, u must call out to the host to fill in the values.
