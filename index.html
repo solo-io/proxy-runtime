@@ -1,115 +1,177 @@
 <!DOCTYPE html>
 <html>
+
 <head>
-<title>Conway's Game of Life - AssemblyScript</title>
-<link rel="icon" href="https://assemblyscript.org/favicon.ico" type="image/x-icon" />
-<meta name="viewport" content="user-scalable=0" />
-<style>
-html, body { height: 100%; margin: 0; overflow: hidden; color: #111; background: #fff; font-family: sans-serif; }
-body { border-top: 2px solid #bc18d4; }
-h1 { padding: 18px 20px 20px; font-size: 12pt; margin: 0; }
-a { color: #111; text-decoration: none; }
-a:hover { color: #bc18d4; text-decoration: underline; }
-#edge { position: absolute; bottom: 40px; right: 40px; color: #fff; display: none; text-shadow: 0 1px 2px #000; -ms-user-select: none; user-select: none; }
-</style>
+  <title>Conway's Game of Life - AssemblyScript</title>
+  <link rel="icon" href="https://assemblyscript.org/favicon.ico" type="image/x-icon" />
+  <meta name="viewport" content="user-scalable=0" />
+  <style>
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      color: #111;
+      background: #fff;
+      font-family: sans-serif;
+    }
+
+    body {
+      border-top: 2px solid #bc18d4;
+    }
+
+    h1 {
+      padding: 18px 20px 20px;
+      font-size: 12pt;
+      margin: 0;
+    }
+
+    a {
+      color: #111;
+      text-decoration: none;
+    }
+
+    a:hover {
+      color: #bc18d4;
+      text-decoration: underline;
+    }
+
+    #edge {
+      position: absolute;
+      bottom: 40px;
+      right: 40px;
+      color: #fff;
+      display: none;
+      text-shadow: 0 1px 2px #000;
+      -ms-user-select: none;
+      user-select: none;
+    }
+  </style>
 </head>
+
 <body>
-<h1>
-  <a href="https://en.wikipedia.org/wiki/Conway's_Game_of_Life">Conway's Game of Life</a> in
-  <a href="http://assemblyscript.org">AssemblyScript</a>
-  ( <a href="https://github.com/AssemblyScript/assemblyscript/blob/master/examples/game-of-life/assembly/index.ts">source</a> )
-</h1>
-<div id="edge">Might be blurry because MS Edge does not support 'image-rendering: crisp-edges' (yet) :-(</div>
-<script>"use strict";
+  <h1>
+    <a href="https://en.wikipedia.org/wiki/Conway's_Game_of_Life">Conway's Game of Life</a> in
+    <a href="http://assemblyscript.org">AssemblyScript</a>
+    ( <a
+      href="https://github.com/AssemblyScript/assemblyscript/blob/master/examples/game-of-life/assembly/index.ts">source</a>
+    )
+  </h1>
+  <div id="edge">Might be blurry because MS Edge does not support 'image-rendering: crisp-edges' (yet) :-(</div>
+  <script>"use strict";
 
-const byteSize = 100000;
-var globalModule;
-var globalExports;
-// Compute the size of and instantiate the module's memory
-var memory = new WebAssembly.Memory({ initial: ((byteSize + 0xffff) & ~0xffff) >>> 16 });
-const utf8Decoder = new TextDecoder('utf-8');
+    const byteSize = 100000;
+    var globalModule;
+    var globalExports;
+    // Compute the size of and instantiate the module's memory
+    var memory = new WebAssembly.Memory({ initial: ((byteSize + 0xffff) & ~0xffff) >>> 16 });
+    const utf8Decoder = new TextDecoder('utf-8');
 
-async function main() {
+    async function main() {
 
-try {
-// Fetch and instantiate the module
-const response = await fetch("/build/untouched.wasm");
-const buffer = await response.arrayBuffer();
-const wasmmodule = await WebAssembly.instantiate(buffer, {
-  env: {
-    memory,
-    abort(_msg, _file, line, column) {
-       console.error("abort called at index.ts:" + line + ":" + column);
-    },
-    proxy_log(level, logMessage, messageSize) {
-        var mem = new Uint8Array(globalModule.instance.exports.memory.buffer);
-        let buf = mem.slice(logMessage, logMessage + messageSize);
-        let msg = String.fromCharCode.apply(null, buf);
-        msg = utf8Decoder.decode(buf);
-        console.info(msg.toString());
-        return 0;
-      },
-    proxy_get_configuration(configuration_ptr, configuration_size) {
-      // get memory:
-      const conf_size = 5;
-      let bytes = globalExports.malloc(conf_size);
-      if (bytes === 0) {
-        throw "can't allocate";
+      try {
+        // Fetch and instantiate the module
+        const response = await fetch("/build/untouched.wasm");
+        const buffer = await response.arrayBuffer();
+        const wasmmodule = await WebAssembly.instantiate(buffer, {
+          env: {
+            memory,
+            abort(_msg, _file, line, column) {
+              console.error("abort called at index.ts:" + line + ":" + column);
+            },
+            proxy_log(level, logMessage, messageSize) {
+              var mem = new Uint8Array(globalModule.instance.exports.memory.buffer);
+              let buf = mem.slice(logMessage, logMessage + messageSize);
+              let msg = String.fromCharCode.apply(null, buf);
+              msg = utf8Decoder.decode(buf);
+              console.info(msg.toString());
+              return 0;
+            },
+            proxy_get_configuration(configuration_ptr, configuration_size) {
+              // get memory:
+              const conf_size = 5;
+              let bytes = globalExports.malloc(conf_size);
+              if (bytes === 0) {
+                throw "can't allocate";
+              }
+
+              var moduleMemory = globalModule.instance.exports.memory.buffer;
+
+              var confMem = new Uint8Array(moduleMemory, bytes, conf_size);
+              confMem[0] = 'y'.charCodeAt(0);
+              confMem[1] = 'v'.charCodeAt(0);
+              confMem[2] = 'u'.charCodeAt(0);
+              confMem[3] = 'a'.charCodeAt(0);
+              confMem[4] = 'l'.charCodeAt(0);
+
+              var confPtr = new Uint32Array(moduleMemory, configuration_ptr, 1);
+              confPtr[0] = bytes;
+              var confSizePtr = new Uint32Array(moduleMemory, configuration_size, 1);
+              confSizePtr[0] = conf_size;
+
+              console.info("configuration_ptr index.ts:" + configuration_ptr + ":" + configuration_size);
+            },
+            proxy_get_status(status_code_ptr, message_ptr, message_size) { return 0; },
+            proxy_set_tick_period_milliseconds(millisecond) { return 0; },
+            proxy_get_current_time_nanoseconds(nanoseconds) { return 0; },
+            proxy_get_property(path_ptr, path_size, value_ptr_ptr, value_size_ptr) { return 0; },
+            proxy_set_property(path_ptr, path_size, value_ptr, value_size) { return 0; },
+            proxy_continue_request() { return 0; },
+            proxy_continue_response() { return 0; },
+            proxy_send_local_response(response_code, response_code_details_ptr,
+              response_code_details_size, body_ptr, body_size,
+              additional_response_header_pairs_ptr,
+              additional_response_header_pairs_size, grpc_status) { return 0; },
+            proxy_clear_route_cache() { return 0; },
+            proxy_get_shared_data(key_ptr, key_size, value_ptr, value_size, cas) { return 0; },
+            proxy_set_shared_data(key_ptr, key_size, value_ptr, value_size, cas) { return 0; },
+            proxy_register_shared_queue(queue_name_ptr, queue_name_size, token) { return 0; },
+            proxy_resolve_shared_queue(vm_id, vm_id_size, queue_name_ptr, queue_name_size, token) { return 0; },
+            proxy_dequeue_shared_queue(token, data_ptr, data_size) { return 0; },
+            proxy_enqueue_shared_queue(token, data_ptr, data_size) { return 0; },
+            proxy_add_header_map_value(typ, key_ptr, key_size, value_ptr, value_size) { return 0; },
+            proxy_get_header_map_value(typ, key_ptr, key_size, value_ptr, value_size) { return 0; },
+            proxy_get_header_map_pairs(typ, ptr, size) { return 0; },
+            proxy_set_header_map_pairs(typ, ptr, size) { return 0; },
+            proxy_replace_header_map_value(typ, key_ptr, key_size, value_ptr, value_size) { return 0; },
+            proxy_remove_header_map_value(typ, key_ptr, key_size) { return 0; },
+            proxy_get_header_map_size(typ, size) { return 0; },
+            proxy_get_buffer_bytes(typ, start, length, ptr, size) { return 0; },
+            proxy_get_buffer_status(typ, length_ptr, flags_ptr) { return 0; },
+            proxy_http_call(uri_ptr, uri_size, header_pairs_ptr, header_pairs_size, body_ptr, body_size, trailer_pairs_ptr, trailer_pairs_size, timeout_milliseconds, token_ptr) { return 0; },
+            proxy_grpc_call(service_ptr, service_size, service_name_ptr, service_name_size, method_name_ptr, method_name_size, request_ptr, request_size, timeout_milliseconds, token_ptr) { return 0; },
+            proxy_grpc_stream(service_ptr, service_size, service_name_ptr, service_name_size, method_name_ptr, method_name_size, token_ptr) { return 0; },
+            proxy_grpc_cancel(token) { return 0; },
+            proxy_grpc_close(token) { return 0; },
+            proxy_grpc_send(token, message_ptr, message_size, end_stream) { return 0; },
+            proxy_define_metric(type, name_ptr, name_size, metric_id) { return 0; },
+            proxy_increment_metric(metric_id, offset) { return 0; },
+            proxy_record_metric(metric_id, value) { return 0; },
+            proxy_get_metric(metric_id, result) { return 0; },
+            proxy_set_effective_context(effective_context_id) { return 0; },
+            proxy_done() { return 0; },
+
+          }
+        });
+
+        globalModule = wasmmodule;
+        var exports = wasmmodule.instance.exports;
+        globalExports = exports;
+
+        // Initialize the filter
+        exports.get_configuration();
+
+      } catch (err) {
+        alert("Failed to load WASM: " + err.message + " (ad blocker, maybe?)");
+        console.log(err);
+        console.log(err.stack);
       }
 
-      var moduleMemory = globalModule.instance.exports.memory.buffer;
+    } //main
 
-      var confMem = new Uint8Array(moduleMemory, bytes, conf_size);
-      confMem[0] = 'y'.charCodeAt(0);
-      confMem[1] = 'v'.charCodeAt(0);
-      confMem[2] = 'u'.charCodeAt(0);
-      confMem[3] = 'a'.charCodeAt(0);
-      confMem[4] = 'l'.charCodeAt(0);
+    main();
 
-      var confPtr = new Uint32Array(moduleMemory, configuration_ptr, 1);
-      confPtr[0] = bytes;
-      var confSizePtr = new Uint32Array(moduleMemory, configuration_size, 1);
-      confSizePtr[0] = conf_size;
-
-      console.info("configuration_ptr index.ts:" + configuration_ptr + ":" + configuration_size);
-    },
-    proxy_get_status(status_code_ptr,message_ptr, message_size) {
-      return 0;
-    },
-    proxy_set_tick_period_milliseconds(millisecond) {
-      return 0;
-    },
-    proxy_get_current_time_nanoseconds( nanoseconds) {
-      return 0;
-    },
-    proxy_get_property(path_ptr, path_size ,value_ptr_ptr,  value_size_ptr) {
-      return 0;
-    },
-    proxy_set_property(path_ptr, path_size ,value_ptr, value_size) {
-      return 0;
-    },
-
-
-  }
-  });
-
-  globalModule = wasmmodule;
-  var exports = wasmmodule.instance.exports;
-  globalExports = exports;
-  
-  // Initialize the filter
-  exports.get_configuration();
-
-} catch(err) {
-  alert("Failed to load WASM: " + err.message + " (ad blocker, maybe?)");
-  console.log(err);
-  console.log(err.stack);
-}
-
-} //main
-
-main();
-
-</script>
+  </script>
 </body>
+
 </html>
