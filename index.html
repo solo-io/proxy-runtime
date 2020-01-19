@@ -72,7 +72,24 @@ const wasmmodule = await WebAssembly.instantiate(buffer, {
       confSizePtr[0] = conf_size;
 
       console.info("configuration_ptr index.ts:" + configuration_ptr + ":" + configuration_size);
-    }
+    },
+    proxy_get_status(status_code_ptr,message_ptr, message_size) {
+      return 0;
+    },
+    proxy_set_tick_period_milliseconds(millisecond) {
+      return 0;
+    },
+    proxy_get_current_time_nanoseconds( nanoseconds) {
+      return 0;
+    },
+    proxy_get_property(path_ptr, path_size ,value_ptr_ptr,  value_size_ptr) {
+      return 0;
+    },
+    proxy_set_property(path_ptr, path_size ,value_ptr, value_size) {
+      return 0;
+    },
+
+
   }
   });
 

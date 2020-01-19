@@ -68,6 +68,11 @@ export declare function proxy_set_tick_period_milliseconds(millisecond:uint32_t 
 @external("env", "proxy_get_current_time_nanoseconds")
 export declare function proxy_get_current_time_nanoseconds( nanoseconds:Uint64Ptr):WasmResult;
 
+// State accessors
+@external("env", "proxy_get_property")
+export declare function proxy_get_property(path_ptr:CharPtr, path_size: size_t ,value_ptr_ptr:CharPtrPtr,  value_size_ptr: SizeTPtr):WasmResult;
+@external("env", "proxy_set_property")
+export declare function proxy_set_property(path_ptr:CharPtr, path_size: size_t ,value_ptr:CharPtr, value_size: size_t ):WasmResult;
 
 function log(level: LogLevel, logMessage: string) : void {
   // from the docs:
@@ -105,13 +110,12 @@ enum WasmResultValues {
   BrokenConnection = 11,
 };
 
-function CHECK_RESULT(c:WasmResult) {
+function CHECK_RESULT(c:WasmResult) :void{
   if (c != WasmResultValues.Ok) {
     log(LogLevelValues.critical, c.toString());
     throw new Error(":(");
   }
 }
-
 
 class Reference<T> {
   data : T;
@@ -121,8 +125,7 @@ class Reference<T> {
   }
 }
 
-
-class BufferArrayReference {
+class ArrayBufferReference {
   private buffer: CharPtr;
   private size: usize;
 
@@ -130,12 +133,11 @@ class BufferArrayReference {
   }
 
   sizePtr() : usize {
-    return changetype<usize>(this) + offsetof<WasmData>("size");
+    return changetype<usize>(this) + offsetof<this>("size");
   }
   bufferPtr() : CharPtr {
-    return changetype<usize>(this) + offsetof<WasmData>("buffer");
+    return changetype<usize>(this) + offsetof<this>("buffer");
   }
-
 
   // Before calling methods below, u must call out to the host to fill in the values.
   // methods below must be called once and only once
@@ -153,19 +155,15 @@ class BufferArrayReference {
   }
 }
 
-
 class WasmData {
   data: ArrayBuffer;
-
-  constructor() {
-  }
-
+  constructor() {}
 }
 
 
 // temporarily exported the function for testing
 export function get_configuration() : ArrayBuffer {
-  let r = new BufferArrayReference();
+  let r = new ArrayBufferReference();
   CHECK_RESULT(proxy_get_configuration(r.bufferPtr(), r.sizePtr()));
   let array = r.toArrayBuffer();
 
@@ -174,17 +172,22 @@ export function get_configuration() : ArrayBuffer {
   return array;
 }
 
-export function get_status() : [uint32_t, ArrayBuffer] {
-  let status = new Reference<u32>();
-  let r = new BufferArrayReference();
-  CHECK_RESULT(proxy_get_status(status.ptr(), r.bufferPtr(), r.sizePtr()));
-  return [status.data, r.toArrayBuffer()];
+class StatusWithData{
+  status: u32;
+  data: ArrayBuffer;
+
 }
 
-export function set_tick_period_milliseconds(millisecond: number) {
+export function get_status() : StatusWithData {
+  let status = new Reference<u32>();
+  let r = new ArrayBufferReference();
+  CHECK_RESULT(proxy_get_status(status.ptr(), r.bufferPtr(), r.sizePtr()));
+  return {status:status.data, data: r.toArrayBuffer()};
+}
+
+export function set_tick_period_milliseconds(millisecond: u32) :void {
   CHECK_RESULT(proxy_set_tick_period_milliseconds(millisecond));
 }
-
 
 export function get_current_time_nanoseconds() : u64 {
   let nanos = new Reference<u64>();
@@ -192,10 +195,19 @@ export function get_current_time_nanoseconds() : u64 {
   return nanos.data;
 }
 
+export function get_property(path: string) : ArrayBuffer {
+  let buffer = String.UTF8.encode(path);
+  let r = new ArrayBufferReference();
 
-// State accessors
-export function proxy_get_property(path_ptr:CharPtr, path_size: size_t ,value_ptr_ptr:CharPtrPtr,  value_size_ptr: SizeTPtr):WasmResult{return 0;}
-export function proxy_set_property(path_ptr:CharPtr, path_size: size_t ,value_ptr:CharPtr, value_size: size_t ):WasmResult{return 0;}
+  CHECK_RESULT(proxy_get_property(changetype<usize>(buffer), buffer.byteLength,r.bufferPtr(), r.sizePtr()));
+  return r.toArrayBuffer();
+}
+
+export function set_property(path: string, data: ArrayBuffer) : WasmResult {
+  let buffer = String.UTF8.encode(path);
+  return proxy_set_property(changetype<usize>(buffer), buffer.byteLength, changetype<usize>(data), data.byteLength);
+}
+
 
 // Continue/Reply/Route
 export function proxy_continue_request():WasmResult{return 0;}
