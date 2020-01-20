@@ -6,18 +6,14 @@
 // type char = u8;
 // type ptr<T> = usize;
 
-type WasmResult = u32;
 type CharPtr = usize;
 type CharPtrPtr = usize;
 type UsizePtr = usize;
 type Uint32Ptr = usize;
 type Uint64Ptr = usize;
-type LogLevel = usize;
 type size_t = usize;
 type SizeTPtr = usize;
 type uint32_t = u32;
-type HeaderMapType = usize;
-type BufferType = usize;
 type MetricType = usize;
 
 type VoidPtr = usize;
@@ -146,9 +142,10 @@ export declare function proxy_set_effective_context(effective_context_id: uint32
 @external("env", "proxy_done")
 export declare function proxy_done(): WasmResult;
 
+type LogLevel = usize;
 enum LogLevelValues { trace, debug, info, warn, error, critical };
 
-
+type WasmResult = u32;
 enum WasmResultValues {
   Ok = 0,
   // The result could not be found, e.g. a provided key did not appear in a table.
@@ -173,7 +170,62 @@ enum WasmResultValues {
   InternalFailure = 10,
   // The connection/stream/pipe was broken/closed unexpectedly.
   BrokenConnection = 11,
-};
+}
+
+type GrpcStatus = i32;
+enum GrpcStatusValues {
+  Ok = 0,
+  Canceled = 1,
+  Unknown = 2,
+  InvalidArgument = 3,
+  DeadlineExceeded = 4,
+  NotFound = 5,
+  AlreadyExists = 6,
+  PermissionDenied = 7,
+  ResourceExhausted = 8,
+  FailedPrecondition = 9,
+  Aborted = 10,
+  OutOfRange = 11,
+  Unimplemented = 12,
+  Internal = 13,
+  Unavailable = 14,
+  DataLoss = 15,
+  Unauthenticated = 16,
+  MaximumValid = Unauthenticated,
+  InvalidCode = -1
+}
+
+type HeaderMapType = i32;
+enum HeaderMapTypeValues {
+  RequestHeaders = 0,   // During the onLog callback these are immutable
+  RequestTrailers = 1,  // During the onLog callback these are immutable
+  ResponseHeaders = 2,  // During the onLog callback these are immutable
+  ResponseTrailers = 3, // During the onLog callback these are immutable
+  GrpcCreateInitialMetadata = 4,
+  GrpcReceiveInitialMetadata = 5,  // Immutable
+  GrpcReceiveTrailingMetadata = 6, // Immutable
+  HttpCallResponseHeaders = 7,     // Immutable
+  HttpCallResponseTrailers = 8,    // Immutable
+  MAX = 8,
+}
+
+type BufferType = i32;
+enum BufferTypeValues {
+  HttpRequestBody = 0,       // During the onLog callback these are immutable
+  HttpResponseBody = 1,      // During the onLog callback these are immutable
+  NetworkDownstreamData = 2, // During the onLog callback these are immutable
+  NetworkUpstreamData = 3,   // During the onLog callback these are immutable
+  HttpCallResponseBody = 4,  // Immutable
+  GrpcReceiveBuffer = 5,     // Immutable
+  MAX = 5,
+}
+
+type BufferFlags = i32;
+
+enum BufferFlagsValues {
+  // These must be powers of 2.
+  EndOfStream = 1,
+}
 
 
 /// Allow host to allocate memory.
@@ -213,8 +265,8 @@ class ArrayBufferReference {
     return changetype<usize>(this) + offsetof<ArrayBufferReference>("buffer");
   }
 
-  // Before calling methods below, u must call out to the host to fill in the values.
-  // methods below must be called once and only once
+  // Before calling toArrayBuffer below, you must call out to the host to fill in the values.
+  // toArrayBuffer below **must** be called once and only once.
   toArrayBuffer(): ArrayBuffer {
 
     if (this.size == 0) {
@@ -234,6 +286,7 @@ class WasmData {
   constructor() { }
 }
 
+type Headers = Map<ArrayBuffer, ArrayBuffer>;
 
 /////////////////// wrappers below
 
@@ -294,11 +347,157 @@ export function get_property(path: string): ArrayBuffer {
   return r.toArrayBuffer();
 }
 
-export function set_property(path: string, data: ArrayBuffer): WasmResult {
+export function set_property(path: string, data: ArrayBuffer): WasmResultValues {
   let buffer = String.UTF8.encode(path);
   return proxy_set_property(changetype<usize>(buffer), buffer.byteLength, changetype<usize>(data), data.byteLength);
 }
 
+function pairsSize(headers: Headers): usize {
+  let size = 4; // number of headers
+  let all_keys = headers.keys();
+  // for in loop doesn't seem to be supported..
+  for (let i = 0; i < all_keys.length; i++) {
+    let key = all_keys[i];
+    size += 8;                   // size of key, size of value
+    size += key.byteLength + 1;  // null terminated key
+    size += headers[key].byteLength + 1; // null terminated value
+  }
+  return size;
+}
+
+function serializeHeaders(headers: Headers): ArrayBuffer {
+  let result = new ArrayBuffer(pairsSize(headers));
+  let sizes = Uint32Array.wrap(result, 0, 1 + headers.size);
+  sizes[0] = headers.size;
+
+  // header sizes:
+  let index = 1;
+
+  let keys /*: []ArrayBuffer*/ = headers.keys();
+  // for in loop doesn't seem to be supported..
+  for (let i = 0; i < keys.length; i++) {
+    let key = keys[i];
+    sizes[index] = key.byteLength;
+    index++;
+    sizes[index] = headers[key].byteLength;
+    index++;
+  }
+
+  let data = Uint8Array.wrap(result, sizes.byteLength);
+
+  let currentOffset = 0;
+  // for in loop doesn't seem to be supported..
+  for (let i = 0; i < keys.length; i++) {
+    let key = keys[i];
+    // i'm sure there's a better way to copy, i just don't know what it is :/
+    let wrappedKey = Uint8Array.wrap(key);
+    let keyData = data.subarray(currentOffset, wrappedKey.byteLength);
+    for (let i = 0; i < wrappedKey.byteLength; i++) {
+      keyData[i] = wrappedKey[i];
+    }
+    currentOffset += wrappedKey.byteLength + 1; // + 1 for terminating nil
+
+
+    let wrappedValue = Uint8Array.wrap(headers[key]);
+    let valueData = data.subarray(currentOffset, wrappedValue.byteLength);
+    for (let i = 0; i < wrappedValue.byteLength; i++) {
+      valueData[i] = wrappedValue[i];
+    }
+    currentOffset += wrappedValue.byteLength + 1; // + 1 for terminating nil
+  }
+  return result;
+}
+
+export function continue_request(): WasmResult { return proxy_continue_request(); }
+export function continue_response(): WasmResult { return proxy_continue_response(); }
+export function send_local_response(response_code: u32, response_code_details: string, body: ArrayBuffer,
+  additional_headers: Headers, grpc_status: GrpcStatusValues): WasmResultValues {
+  let response_code_details_buffer = String.UTF8.encode(response_code_details);
+  let headers = serializeHeaders(additional_headers);
+  return proxy_send_local_response(response_code, changetype<usize>(response_code_details_buffer), response_code_details_buffer.byteLength,
+    changetype<usize>(body), body.byteLength, changetype<usize>(headers), headers.byteLength, grpc_status);
+}
+
+
+export function clear_route_cache(): WasmResultValues { return proxy_clear_route_cache(); }
+/*
+export function get_shared_data(key_ptr, key_size, value_ptr, value_size, cas) { return 0; },
+export function set_shared_data(key_ptr, key_size, value_ptr, value_size, cas) { return 0; },
+export function register_shared_queue(queue_name_ptr, queue_name_size, token) { return 0; },
+export function resolve_shared_queue(vm_id, vm_id_size, queue_name_ptr, queue_name_size, token) { return 0; },
+export function dequeue_shared_queue(token, data_ptr, data_size) { return 0; },
+export function enqueue_shared_queue(token, data_ptr, data_size) { return 0; },
+*/
+
+export function add_header_map_value(typ: HeaderMapTypeValues, key: ArrayBuffer, value: ArrayBuffer): WasmResultValues {
+  return proxy_add_header_map_value(typ, changetype<usize>(key), key.byteLength, changetype<usize>(value), value.byteLength);
+}
+export function get_header_map_value(typ: HeaderMapTypeValues, key: ArrayBuffer): ArrayBuffer {
+  let r = new ArrayBufferReference();
+  let result = proxy_get_header_map_value(typ, changetype<usize>(key), key.byteLength, r.bufferPtr(), r.sizePtr());
+  if (result == WasmResultValues.Ok) {
+    return r.toArrayBuffer()
+  }
+  return new ArrayBuffer(0);
+}
+function get_header_map_flat_pairs(typ: HeaderMapTypeValues): ArrayBuffer {
+  let r = new ArrayBufferReference();
+  let result = proxy_get_header_map_pairs(typ, r.bufferPtr(), r.sizePtr());
+  if (result == WasmResultValues.Ok) {
+    return r.toArrayBuffer()
+  }
+  return new ArrayBuffer(0);
+}
+export function get_header_map_pairs(typ: HeaderMapTypeValues): Headers { throw new Error('un impl yet'); }
+export function set_header_map_flat_pairs(typ: HeaderMapTypeValues, flat_headers: ArrayBuffer): void {
+  CHECK_RESULT(proxy_set_header_map_pairs(typ, changetype<usize>(flat_headers), flat_headers.byteLength));
+}
+export function set_header_map_pairs(typ: HeaderMapTypeValues, headers: Headers): void {
+  let flat_headers = serializeHeaders(headers);
+  set_header_map_flat_pairs(typ, flat_headers);
+}
+export function replace_header_map_value(typ: HeaderMapTypeValues, key: ArrayBuffer, value: ArrayBuffer): void {
+  CHECK_RESULT(proxy_replace_header_map_value(typ, changetype<usize>(key), key.byteLength, changetype<usize>(value), value.byteLength));
+}
+export function remove_header_map_value(typ: HeaderMapTypeValues, key: ArrayBuffer): void {
+  CHECK_RESULT(proxy_remove_header_map_value(typ, changetype<usize>(key), key.byteLength));
+}
+export function get_header_map_size(typ: HeaderMapTypeValues): usize {
+  let status = new Reference<usize>();
+  CHECK_RESULT(proxy_get_header_map_size(typ, status.ptr()));
+  return status.data;
+}
+// unclear if start and length are 64 or 32
+export function get_buffer_bytes(typ: BufferTypeValues, start: u32, length: u32): ArrayBuffer {
+  let r = new ArrayBufferReference();
+  let result = proxy_get_buffer_bytes(typ, start, length, r.bufferPtr(), r.sizePtr());
+  // TODO: return the result as well. not sure what the best way to do this as it doesn't seem that
+  // assembly scripts supports tuples.
+  if (result == WasmResultValues.Ok) {
+    return r.toArrayBuffer()
+  }
+  return new ArrayBuffer(0);
+}
+
+/*
+export function get_buffer_status(typ, length_ptr, flags_ptr) { return 0; },
+export function http_call(uri_ptr, uri_size, header_pairs_ptr, header_pairs_size, body_ptr, body_size, trailer_pairs_ptr, trailer_pairs_size, timeout_milliseconds, token_ptr) { return 0; },
+export function grpc_call(service_ptr, service_size, service_name_ptr, service_name_size, method_name_ptr, method_name_size, request_ptr, request_size, timeout_milliseconds, token_ptr) { return 0; },
+export function grpc_stream(service_ptr, service_size, service_name_ptr, service_name_size, method_name_ptr, method_name_size, token_ptr) { return 0; },
+export function grpc_cancel(token) { return 0; },
+export function grpc_close(token) { return 0; },
+export function grpc_send(token, message_ptr, message_size, end_stream) { return 0; },
+export function define_metric(type, name_ptr, name_size, metric_id) { return 0; },
+export function increment_metric(metric_id, offset) { return 0; },
+export function record_metric(metric_id, value) { return 0; },
+export function get_metric(metric_id, result) { return 0; },
+*/
+
+export function set_effective_context(effective_context_id: u32): WasmResult {
+  return proxy_set_effective_context(effective_context_id);
+}
+
+export function done(): WasmResult { return proxy_done(); }
 
 ///// CALLS IN
 
