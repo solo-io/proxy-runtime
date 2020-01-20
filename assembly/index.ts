@@ -1,4 +1,9 @@
 
+import {
+  proc_exit,
+} from "bindings/wasi";
+
+
 //
 // ABI
 //
@@ -288,7 +293,37 @@ class WasmData {
 
 type Headers = Map<ArrayBuffer, ArrayBuffer>;
 
+/////////////////////////// helper functions
+
+// abort function.
+// use with:
+// --use abort=index/abort_proc_exit
+// compiler flag
+@global
+export function abort_proc_exit(
+  message: string | null,
+  fileName: string | null,
+  lineNumber: u32,
+  columnNumber: u32
+): void {
+
+  if (message != null) {
+    log(LogLevelValues.critical, message.toString());
+  }
+  // from the docs: exceptions are not supported, and will abort
+  //  throw new Error(":(");
+  proc_exit(255);
+}
+
+function CHECK_RESULT(c: WasmResult): void {
+  if (c != WasmResultValues.Ok) {
+    log(LogLevelValues.critical, c.toString());
+    abort_proc_exit(":(", null,0,0);
+  }
+}
+
 /////////////////// wrappers below
+/////////////////// these are the same as the imports above, but with more native typescript interface.
 
 function log(level: LogLevel, logMessage: string): void {
   // from the docs:
@@ -296,16 +331,6 @@ function log(level: LogLevel, logMessage: string): void {
   let buffer = String.UTF8.encode(logMessage);
   proxy_log(0, changetype<usize>(buffer), buffer.byteLength);
 }
-
-
-function CHECK_RESULT(c: WasmResult): void {
-  if (c != WasmResultValues.Ok) {
-    log(LogLevelValues.critical, c.toString());
-    // from the docs: exceptions are not supported, and will abort
-    throw new Error(":(");
-  }
-}
-
 
 // temporarily exported the function for testing
 export function get_configuration(): ArrayBuffer {
@@ -502,7 +527,7 @@ export function done(): WasmResult { return proxy_done(); }
 ///// CALLS IN
 
 // Calls in.
-export function proxy_on_start(root_context_id: uint32_t, configuration_size: uint32_t): uint32_t { return 0; }
+export function proxy_on_vm_start(root_context_id: uint32_t, configuration_size: uint32_t): uint32_t { return 0; }
 export function proxy_validate_configuration(root_context_id: uint32_t, configuration_size: uint32_t): uint32_t { return 0; }
 export function proxy_on_configure(root_context_id: uint32_t, configuration_size: uint32_t): uint32_t { return 0; }
 export function proxy_on_tick(root_context_id: uint32_t): void { }

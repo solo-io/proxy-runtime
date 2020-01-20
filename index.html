@@ -74,6 +74,11 @@
         const response = await fetch("/build/untouched.wasm");
         const buffer = await response.arrayBuffer();
         const wasmmodule = await WebAssembly.instantiate(buffer, {
+          wasi_unstable: {
+            proc_exit(retval) {
+              throw new Error("proc exit");
+            }
+          },
           env: {
             memory,
             abort(_msg, _file, line, column) {
