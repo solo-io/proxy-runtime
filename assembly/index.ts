@@ -3,27 +3,6 @@
 // ABI
 //
 
-
-/// Allow host to allocate memory.
-
-export function malloc(size: usize): usize {
-  let buffer = new ArrayBuffer(size);
-  let ptr = changetype<usize>(buffer);
-  return __retain(ptr);
-}
-
-/// Allow host to free memory.
-export function free(ptr: usize): void {
-  __release(ptr);
-}
-
-/*
-namespace proxy {
-  function get_configuration() : ArrayBuffer {
-    return 
-  }
-}
-*/
 // type char = u8;
 // type ptr<T> = usize;
 
@@ -167,15 +146,6 @@ export declare function proxy_set_effective_context(effective_context_id: uint32
 @external("env", "proxy_done")
 export declare function proxy_done(): WasmResult;
 
-// wrappers below
-
-function log(level: LogLevel, logMessage: string): void {
-  // from the docs:
-  // Like JavaScript, AssemblyScript stores strings in UTF-16 encoding represented by the API as UCS-2, 
-  let buffer = String.UTF8.encode(logMessage);
-  proxy_log(0, changetype<usize>(buffer), buffer.byteLength);
-}
-
 enum LogLevelValues { trace, debug, info, warn, error, critical };
 
 
@@ -205,13 +175,21 @@ enum WasmResultValues {
   BrokenConnection = 11,
 };
 
-function CHECK_RESULT(c: WasmResult): void {
-  if (c != WasmResultValues.Ok) {
-    log(LogLevelValues.critical, c.toString());
-    // from the docs: exceptions are not supported, and will abort
-    throw new Error(":(");
-  }
+
+/// Allow host to allocate memory.
+export function malloc(size: usize): usize {
+  let buffer = new ArrayBuffer(size);
+  let ptr = changetype<usize>(buffer);
+  return __retain(ptr);
 }
+
+/// Allow host to free memory.
+export function free(ptr: usize): void {
+  __release(ptr);
+}
+
+
+/////////////// Access helpers
 
 class Reference<T> {
   data: T;
@@ -257,21 +235,38 @@ class WasmData {
 }
 
 
+/////////////////// wrappers below
+
+function log(level: LogLevel, logMessage: string): void {
+  // from the docs:
+  // Like JavaScript, AssemblyScript stores strings in UTF-16 encoding represented by the API as UCS-2, 
+  let buffer = String.UTF8.encode(logMessage);
+  proxy_log(0, changetype<usize>(buffer), buffer.byteLength);
+}
+
+
+function CHECK_RESULT(c: WasmResult): void {
+  if (c != WasmResultValues.Ok) {
+    log(LogLevelValues.critical, c.toString());
+    // from the docs: exceptions are not supported, and will abort
+    throw new Error(":(");
+  }
+}
+
+
 // temporarily exported the function for testing
 export function get_configuration(): ArrayBuffer {
   let r = new ArrayBufferReference();
   CHECK_RESULT(proxy_get_configuration(r.bufferPtr(), r.sizePtr()));
   let array = r.toArrayBuffer();
 
-  //  log(0, String.UTF8.decode(array));
-
+  log(LogLevelValues.debug, String.UTF8.decode(array));
   return array;
 }
 
 class StatusWithData {
   status: u32;
   data: ArrayBuffer;
-
 }
 
 export function get_status(): StatusWithData {
