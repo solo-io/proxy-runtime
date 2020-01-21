@@ -309,6 +309,8 @@ class ArrayBufferReference {
   }
 }
 
+var globalArrayBufferReference = new ArrayBufferReference();
+
 class WasmData {
   data: ArrayBuffer;
   constructor() { }
@@ -357,9 +359,8 @@ function log(level: LogLevel, logMessage: string): void {
 
 // temporarily exported the function for testing
 export function get_configuration(): ArrayBuffer {
-  let r = new ArrayBufferReference();
-  CHECK_RESULT(proxy_get_configuration(r.bufferPtr(), r.sizePtr()));
-  let array = r.toArrayBuffer();
+  CHECK_RESULT(proxy_get_configuration(globalArrayBufferReference.bufferPtr(), globalArrayBufferReference.sizePtr()));
+  let array = globalArrayBufferReference.toArrayBuffer();
 
   log(LogLevelValues.debug, String.UTF8.decode(array));
   return array;
@@ -372,9 +373,8 @@ class StatusWithData {
 
 export function get_status(): StatusWithData {
   let status = new Reference<u32>();
-  let r = new ArrayBufferReference();
-  CHECK_RESULT(proxy_get_status(status.ptr(), r.bufferPtr(), r.sizePtr()));
-  return { status: status.data, data: r.toArrayBuffer() };
+  CHECK_RESULT(proxy_get_status(status.ptr(), globalArrayBufferReference.bufferPtr(), globalArrayBufferReference.sizePtr()));
+  return { status: status.data, data: globalArrayBufferReference.toArrayBuffer() };
 }
 
 export function set_tick_period_milliseconds(millisecond: u32): void {
@@ -389,10 +389,9 @@ export function get_current_time_nanoseconds(): u64 {
 
 export function get_property(path: string): ArrayBuffer {
   let buffer = String.UTF8.encode(path);
-  let r = new ArrayBufferReference();
 
-  CHECK_RESULT(proxy_get_property(changetype<usize>(buffer), buffer.byteLength, r.bufferPtr(), r.sizePtr()));
-  return r.toArrayBuffer();
+  CHECK_RESULT(proxy_get_property(changetype<usize>(buffer), buffer.byteLength, globalArrayBufferReference.bufferPtr(), globalArrayBufferReference.sizePtr()));
+  return globalArrayBufferReference.toArrayBuffer();
 }
 
 export function set_property(path: string, data: ArrayBuffer): WasmResultValues {
@@ -481,18 +480,16 @@ export function add_header_map_value(typ: HeaderMapTypeValues, key: ArrayBuffer,
   return proxy_add_header_map_value(typ, changetype<usize>(key), key.byteLength, changetype<usize>(value), value.byteLength);
 }
 export function get_header_map_value(typ: HeaderMapTypeValues, key: ArrayBuffer): ArrayBuffer {
-  let r = new ArrayBufferReference();
-  let result = proxy_get_header_map_value(typ, changetype<usize>(key), key.byteLength, r.bufferPtr(), r.sizePtr());
+  let result = proxy_get_header_map_value(typ, changetype<usize>(key), key.byteLength, globalArrayBufferReference.bufferPtr(), globalArrayBufferReference.sizePtr());
   if (result == WasmResultValues.Ok) {
-    return r.toArrayBuffer()
+    return globalArrayBufferReference.toArrayBuffer()
   }
   return new ArrayBuffer(0);
 }
 function get_header_map_flat_pairs(typ: HeaderMapTypeValues): ArrayBuffer {
-  let r = new ArrayBufferReference();
-  let result = proxy_get_header_map_pairs(typ, r.bufferPtr(), r.sizePtr());
+  let result = proxy_get_header_map_pairs(typ, globalArrayBufferReference.bufferPtr(), globalArrayBufferReference.sizePtr());
   if (result == WasmResultValues.Ok) {
-    return r.toArrayBuffer()
+    return globalArrayBufferReference.toArrayBuffer()
   }
   return new ArrayBuffer(0);
 }
@@ -517,12 +514,11 @@ export function get_header_map_size(typ: HeaderMapTypeValues): usize {
 }
 // unclear if start and length are 64 or 32
 export function get_buffer_bytes(typ: BufferTypeValues, start: u32, length: u32): ArrayBuffer {
-  let r = new ArrayBufferReference();
-  let result = proxy_get_buffer_bytes(typ, start, length, r.bufferPtr(), r.sizePtr());
+  let result = proxy_get_buffer_bytes(typ, start, length, globalArrayBufferReference.bufferPtr(), globalArrayBufferReference.sizePtr());
   // TODO: return the result as well. not sure what the best way to do this as it doesn't seem that
   // assembly scripts supports tuples.
   if (result == WasmResultValues.Ok) {
-    return r.toArrayBuffer()
+    return globalArrayBufferReference.toArrayBuffer()
   }
   return new ArrayBuffer(0);
 }
