@@ -19,14 +19,8 @@ type Uint64Ptr = usize;
 type size_t = usize;
 type SizeTPtr = usize;
 type uint32_t = u32;
-type MetricType = usize;
 
 type VoidPtr = usize;
-
-type FilterHeadersStatus = u32;
-type FilterDataStatus = u32;
-type FilterTrailersStatus = u32;
-type FilterMetadataStatus = u32;
 
 // Configuration and Status
 @external("env", "proxy_get_configuration")
@@ -176,6 +170,21 @@ enum WasmResultValues {
   // The connection/stream/pipe was broken/closed unexpectedly.
   BrokenConnection = 11,
 }
+type FilterStatus = i32;
+enum FilterStatusValues { Continue = 0, StopIteration = 1 }
+type FilterHeadersStatus = i32;
+enum FilterHeadersStatusValues { Continue = 0, StopIteration = 1 }
+type FilterMetadataStatus = i32;
+enum FilterMetadataStatusValues { Continue = 0 };
+type FilterTrailersStatus = i32;
+enum FilterTrailersStatusValues { Continue = 0, StopIteration = 1 }
+type FilterDataStatus = i32;
+enum FilterDataStatusValues {
+  Continue = 0,
+  StopIterationAndBuffer = 1,
+  StopIterationAndWatermark = 2,
+  StopIterationNoBuffer = 3
+}
 
 type GrpcStatus = i32;
 enum GrpcStatusValues {
@@ -198,6 +207,20 @@ enum GrpcStatusValues {
   Unauthenticated = 16,
   MaximumValid = Unauthenticated,
   InvalidCode = -1
+}
+
+
+type MetricType = i32;
+enum MetricTypeValues {
+  Counter = 0,
+  Gauge = 1,
+  Histogram = 2,
+}
+type PeerType = i32;
+enum PeerTypeValues {
+  Unknown = 0,
+  Local = 1,
+  Remote = 2,
 }
 
 type HeaderMapType = i32;
@@ -523,11 +546,102 @@ export function set_effective_context(effective_context_id: u32): WasmResult {
 }
 
 export function done(): WasmResult { return proxy_done(); }
+/////// runtime support
+
+
+interface Context {
+  readonly context_id : ArrayBuffer;
+  readonly root_context:RootContext;
+
+
+  onNewConnection():FilterStatusValues ;
+  onDownstreamData(size:size_t,end: bool):FilterStatusValues ;
+  onUpstreamData(size:size_t,end: bool):FilterStatusValues ;
+  onDownstreamConnectionClose(t:PeerType):void;
+  onUpstreamConnectionClose(t:PeerType):void;
+
+  onRequestHeaders(a:uint32_t):FilterHeadersStatusValues;
+  onRequestMetadata(a:uint32_t):FilterMetadataStatusValues;
+  onRequestBody(body_buffer_length :size_t,end_of_stream: bool):FilterDataStatusValues;
+  onRequestTrailers(a: uint32_t):FilterTrailersStatusValues;
+  onResponseHeaders(a: uint32_t):FilterHeadersStatusValues;
+  onResponseMetadata(a: uint32_t):FilterMetadataStatusValues;
+  onResponseBody(body_buffer_length :size_t,end_of_stream: bool):FilterDataStatusValues;
+  onResponseTrailers(a: uint32_t):FilterTrailersStatusValues;
+  onDone():void; // Called when the stream has completed.
+  onLog() :void;  // Called after onDone when logging is requested.
+
+
+}
+class ContextBase {
+  readonly context_id : ArrayBuffer;
+  readonly root_context:RootContext;
+
+
+  onNewConnection():FilterStatusValues  { return FilterStatusValues.Continue; }
+  onDownstreamData(size:size_t,end: bool):FilterStatusValues  { return FilterStatusValues.Continue; }
+  onUpstreamData(size:size_t,end: bool):FilterStatusValues  { return FilterStatusValues.Continue; }
+  onDownstreamConnectionClose(p:PeerType) :void{}
+  onUpstreamConnectionClose(p:PeerType) :void{}
+
+  onRequestHeaders(a:uint32_t):FilterHeadersStatusValues{ return FilterHeadersStatusValues.Continue; }
+  onRequestMetadata(a:uint32_t):FilterMetadataStatusValues {
+    return FilterMetadataStatusValues.Continue;
+  }
+  onRequestBody(body_buffer_length :size_t,end_of_stream: bool):FilterDataStatusValues {
+    return FilterDataStatusValues.Continue;
+  }
+  onRequestTrailers(a: uint32_t):FilterTrailersStatusValues {
+    return FilterTrailersStatusValues.Continue;
+  }
+  onResponseHeaders(a: uint32_t):FilterHeadersStatusValues { return FilterHeadersStatusValues.Continue; }
+  onResponseMetadata(a: uint32_t):FilterMetadataStatusValues {
+    return FilterMetadataStatusValues.Continue;
+  }
+  onResponseBody(body_buffer_length :size_t,end_of_stream: bool):FilterDataStatusValues {
+    return FilterDataStatusValues.Continue;
+  }
+  onResponseTrailers(s:uint32_t) :FilterTrailersStatusValues{
+    return FilterTrailersStatusValues.Continue;
+  }
+  onDone():void {} // Called when the stream has completed.
+  onLog() :void {}  // Called after onDone when logging is requested.
+
+}
+
+interface RootContext {
+
+  readonly root_id : ArrayBuffer;
+
+  // Can be used to validate the configuration (e.g. in the control plane). Returns false if the
+  // configuration is invalid.
+  validateConfiguration(configuration_size: size_t):bool;
+  // Called once when the VM loads and once when each hook loads and whenever configuration changes.
+  // Returns false if the configuration is invalid.
+  onConfigure(configuration_size: size_t):bool;
+  // Called when each hook loads.  Returns false if the configuration is invalid.
+  onStart(vm_configuration_size: size_t):bool;
+  // Called when the timer goes off.
+  onTick():void;
+
+  onDone():bool; // Called when the VM is being torn down.
+  done() : void; // Report that we are now done following returning false from onDone.
+  createContext(context_id:u32): Context;
+}
+
+function getRootContext(root_context_id : u32) : RootContext {
+  throw 123;
+  //return new RootContext();
+}
 
 ///// CALLS IN
 
 // Calls in.
-export function proxy_on_vm_start(root_context_id: uint32_t, configuration_size: uint32_t): uint32_t { return 0; }
+export function proxy_on_vm_start(root_context_id: uint32_t, configuration_size: uint32_t): uint32_t {
+  throw 123;
+  //getRootContext(root_context_id).onStart(configuration_size);
+  return 0;
+}
 export function proxy_validate_configuration(root_context_id: uint32_t, configuration_size: uint32_t): uint32_t { return 0; }
 export function proxy_on_configure(root_context_id: uint32_t, configuration_size: uint32_t): uint32_t { return 0; }
 export function proxy_on_tick(root_context_id: uint32_t): void { }

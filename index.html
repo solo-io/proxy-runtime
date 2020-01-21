@@ -83,6 +83,7 @@
             memory,
             abort(_msg, _file, line, column) {
               console.error("abort called at index.ts:" + line + ":" + column);
+              throw new Error("proc exit");
             },
             proxy_log(level, logMessage, messageSize) {
               var mem = new Uint8Array(globalModule.instance.exports.memory.buffer);
