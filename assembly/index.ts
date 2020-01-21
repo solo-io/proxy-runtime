@@ -630,13 +630,17 @@ function getRootContext(root_context_id : u32) : RootContext {
   //return new RootContext();
 }
 
+function on_vm_start(root_context_id: uint32_t, configuration_size: uint32_t): uint32_t {
+  getRootContext(root_context_id).onStart(configuration_size);
+  return 0;
+}
+
+
 ///// CALLS IN
 
 // Calls in.
 export function proxy_on_vm_start(root_context_id: uint32_t, configuration_size: uint32_t): uint32_t {
-  throw 123;
-  //getRootContext(root_context_id).onStart(configuration_size);
-  return 0;
+  return on_vm_start(root_context_id, configuration_size);
 }
 export function proxy_validate_configuration(root_context_id: uint32_t, configuration_size: uint32_t): uint32_t { return 0; }
 export function proxy_on_configure(root_context_id: uint32_t, configuration_size: uint32_t): uint32_t { return 0; }
