@@ -3,6 +3,10 @@ import {
   proc_exit,
 } from "bindings/wasi";
 
+import {
+  __retain,
+  __release,
+} from "rt/index-full";
 
 //
 // ABI
@@ -23,52 +27,65 @@ type uint32_t = u32;
 type VoidPtr = usize;
 
 // Configuration and Status
+// @ts-ignore: decorator
 @external("env", "proxy_get_configuration")
 export declare function proxy_get_configuration(configuration_ptr: CharPtrPtr, configuration_size: UsizePtr): WasmResult;
 
 // Logging
+// @ts-ignore: decorator
 @external("env", "proxy_log")
 export declare function proxy_log(level: LogLevel, logMessage: CharPtr, messageSize: size_t): WasmResult;
 
+// @ts-ignore: decorator
 @external("env", "proxy_get_status")
 // Results status details for any previous ABI call and onGrpcClose.
 export declare function proxy_get_status(status_code_ptr: Uint32Ptr, message_ptr: CharPtrPtr, message_size: UsizePtr): u32;
 
 // Timer (must be called from a root context, e.g. onStart, onTick).
+// @ts-ignore: decorator
 @external("env", "proxy_set_tick_period_milliseconds")
 export declare function proxy_set_tick_period_milliseconds(millisecond: uint32_t): WasmResult;
 
 // Time
+// @ts-ignore: decorator
 @external("env", "proxy_get_current_time_nanoseconds")
 export declare function proxy_get_current_time_nanoseconds(nanoseconds: Uint64Ptr): WasmResult;
 
 // State accessors
+// @ts-ignore: decorator
 @external("env", "proxy_get_property")
 export declare function proxy_get_property(path_ptr: CharPtr, path_size: size_t, value_ptr_ptr: CharPtrPtr, value_size_ptr: SizeTPtr): WasmResult;
+// @ts-ignore: decorator
 @external("env", "proxy_set_property")
 export declare function proxy_set_property(path_ptr: CharPtr, path_size: size_t, value_ptr: CharPtr, value_size: size_t): WasmResult;
 
 
 // Continue/Reply/Route
+// @ts-ignore: decorator
 @external("env", "proxy_continue_request")
 export declare function proxy_continue_request(): WasmResult;
+// @ts-ignore: decorator
 @external("env", "proxy_continue_response")
 export declare function proxy_continue_response(): WasmResult;
+// @ts-ignore: decorator
 @external("env", "proxy_send_local_response")
 export declare function proxy_send_local_response(response_code: uint32_t, response_code_details_ptr: CharPtr,
   response_code_details_size: size_t, body_ptr: CharPtr, body_size: size_t,
   additional_response_header_pairs_ptr: CharPtr,
   additional_response_header_pairs_size: size_t, grpc_status: uint32_t): WasmResult;
-@external("env", "proxy_clear_route_cache")
+// @ts-ignore: decorator
+  @external("env", "proxy_clear_route_cache")
 export declare function proxy_clear_route_cache(): WasmResult;
 
 // SharedData
 // Returns: Ok, NotFound
+// @ts-ignore: decorator
 @external("env", "proxy_get_shared_data")
 export declare function proxy_get_shared_data(key_ptr: CharPtr, key_size: size_t, value_ptr: CharPtrPtr, value_size: SizeTPtr, cas: Uint32Ptr): WasmResult;
 //  If cas != 0 and cas != the current cas for 'key' return false, otherwise set the value and
 //  return true.
 // Returns: Ok, CasMismatch
+// @ts-ignore: decorator
 @external("env", "proxy_set_shared_data")
 export declare function proxy_set_shared_data(key_ptr: CharPtr, key_size: size_t, value_ptr: CharPtr, value_size: size_t, cas: uint32_t): WasmResult;
 
@@ -76,68 +93,93 @@ export declare function proxy_set_shared_data(key_ptr: CharPtr, key_size: size_t
 // Note: Registering the same queue_name will overwrite the old registration while preseving any
 // pending data. Consequently it should typically be followed by a call to
 // proxy_dequeue_shared_queue. Returns: Ok
+// @ts-ignore: decorator
 @external("env", "proxy_register_shared_queue")
 export declare function proxy_register_shared_queue(queue_name_ptr: CharPtr, queue_name_size: size_t, token: Uint32Ptr): WasmResult;
 // Returns: Ok, NotFound
+// @ts-ignore: decorator
 @external("env", "proxy_resolve_shared_queue")
 export declare function proxy_resolve_shared_queue(vm_id: CharPtr, vm_id_size: size_t, queue_name_ptr: CharPtr, queue_name_size: size_t, token: Uint32Ptr): WasmResult;
 // Returns Ok, Empty, NotFound (token not registered).
+// @ts-ignore: decorator
 @external("env", "proxy_dequeue_shared_queue")
 export declare function proxy_dequeue_shared_queue(token: uint32_t, data_ptr: CharPtrPtr, data_size: SizeTPtr): WasmResult;
 // Returns false if the queue was not found and the data was not enqueued.
+// @ts-ignore: decorator
 @external("env", "proxy_enqueue_shared_queue")
 export declare function proxy_enqueue_shared_queue(token: uint32_t, data_ptr: CharPtr, data_size: size_t): WasmResult;
 
 // Headers/Trailers/Metadata Maps
+// @ts-ignore: decorator
 @external("env", "proxy_add_header_map_value")
 export declare function proxy_add_header_map_value(typ: HeaderMapType, key_ptr: CharPtr, key_size: size_t, value_ptr: CharPtr, value_size: size_t): WasmResult;
+// @ts-ignore: decorator
 @external("env", "proxy_get_header_map_value")
 export declare function proxy_get_header_map_value(typ: HeaderMapType, key_ptr: CharPtr, key_size: size_t, value_ptr: CharPtrPtr, value_size: SizeTPtr): WasmResult;
+// @ts-ignore: decorator
 @external("env", "proxy_get_header_map_pairs")
 export declare function proxy_get_header_map_pairs(typ: HeaderMapType, ptr: CharPtrPtr, size: SizeTPtr): WasmResult;
+// @ts-ignore: decorator
 @external("env", "proxy_set_header_map_pairs")
 export declare function proxy_set_header_map_pairs(typ: HeaderMapType, ptr: CharPtr, size: size_t): WasmResult;
+// @ts-ignore: decorator
 @external("env", "proxy_replace_header_map_value")
 export declare function proxy_replace_header_map_value(typ: HeaderMapType, key_ptr: CharPtr, key_size: size_t, value_ptr: CharPtr, value_size: size_t): WasmResult;
+// @ts-ignore: decorator
 @external("env", "proxy_remove_header_map_value")
 export declare function proxy_remove_header_map_value(typ: HeaderMapType, key_ptr: CharPtr, key_size: size_t): WasmResult;
+// @ts-ignore: decorator
 @external("env", "proxy_get_header_map_size")
 export declare function proxy_get_header_map_size(typ: HeaderMapType, size: SizeTPtr): WasmResult;
 
 // Buffer
+// @ts-ignore: decorator
 @external("env", "proxy_get_buffer_bytes")
 export declare function proxy_get_buffer_bytes(typ: BufferType, start: uint32_t, length: uint32_t, ptr: CharPtrPtr, size: SizeTPtr): WasmResult;
+// @ts-ignore: decorator
 @external("env", "proxy_get_buffer_status")
 export declare function proxy_get_buffer_status(typ: BufferType, length_ptr: SizeTPtr, flags_ptr: Uint32Ptr): WasmResult;
 
 // HTTP
+// @ts-ignore: decorator
 @external("env", "proxy_http_call")
 export declare function proxy_http_call(uri_ptr: CharPtr, uri_size: size_t, header_pairs_ptr: VoidPtr, header_pairs_size: size_t, body_ptr: CharPtr, body_size: size_t, trailer_pairs_ptr: VoidPtr, trailer_pairs_size: size_t, timeout_milliseconds: uint32_t, token_ptr: Uint32Ptr): WasmResult;
 // gRPC
+// @ts-ignore: decorator
 @external("env", "proxy_grpc_call")
 export declare function proxy_grpc_call(service_ptr: CharPtr, service_size: size_t, service_name_ptr: CharPtr, service_name_size: size_t, method_name_ptr: CharPtr, method_name_size: size_t, request_ptr: CharPtr, request_size: size_t, timeout_milliseconds: uint32_t, token_ptr: Uint32Ptr): WasmResult;
+// @ts-ignore: decorator
 @external("env", "proxy_grpc_stream")
 export declare function proxy_grpc_stream(service_ptr: CharPtr, service_size: size_t, service_name_ptr: CharPtr, service_name_size: size_t, method_name_ptr: CharPtr, method_name_size: size_t, token_ptr: Uint32Ptr): WasmResult;
+// @ts-ignore: decorator
 @external("env", "proxy_grpc_cancel")
 export declare function proxy_grpc_cancel(token: uint32_t): WasmResult;
+// @ts-ignore: decorator
 @external("env", "proxy_grpc_close")
 export declare function proxy_grpc_close(token: uint32_t): WasmResult;
+// @ts-ignore: decorator
 @external("env", "proxy_grpc_send")
 export declare function proxy_grpc_send(token: uint32_t, message_ptr: CharPtr, message_size: size_t, end_stream: uint32_t): WasmResult;
 
 // Metrics
+// @ts-ignore: decorator
 @external("env", "proxy_define_metric")
 export declare function proxy_define_metric(type: MetricType, name_ptr: CharPtr, name_size: size_t, metric_id: Uint32Ptr): WasmResult;
+// @ts-ignore: decorator
 @external("env", "proxy_increment_metric")
 export declare function proxy_increment_metric(metric_id: uint32_t, offset: i64): WasmResult;
+// @ts-ignore: decorator
 @external("env", "proxy_record_metric")
 export declare function proxy_record_metric(metric_id: uint32_t, value: u64): WasmResult;
+// @ts-ignore: decorator
 @external("env", "proxy_get_metric")
 export declare function proxy_get_metric(metric_id: uint32_t, result: Uint64Ptr): WasmResult;
 
 // System
+// @ts-ignore: decorator
 @external("env", "proxy_set_effective_context")
 export declare function proxy_set_effective_context(effective_context_id: uint32_t): WasmResult;
+// @ts-ignore: decorator
 @external("env", "proxy_done")
 export declare function proxy_done(): WasmResult;
 
@@ -324,6 +366,7 @@ type Headers = Map<ArrayBuffer, ArrayBuffer>;
 // use with:
 // --use abort=index/abort_proc_exit
 // compiler flag
+// @ts-ignore: decorator
 @global
 export function abort_proc_exit(
   message: string | null,
@@ -544,35 +587,51 @@ export function set_effective_context(effective_context_id: u32): WasmResult {
 export function done(): WasmResult { return proxy_done(); }
 /////// runtime support
 
+abstract class RootContext {
 
-interface Context {
-  readonly context_id : ArrayBuffer;
-  readonly root_context:RootContext;
+  readonly root_id : ArrayBuffer;
 
-
-  onNewConnection():FilterStatusValues ;
-  onDownstreamData(size:size_t,end: bool):FilterStatusValues ;
-  onUpstreamData(size:size_t,end: bool):FilterStatusValues ;
-  onDownstreamConnectionClose(t:PeerType):void;
-  onUpstreamConnectionClose(t:PeerType):void;
-
-  onRequestHeaders(a:uint32_t):FilterHeadersStatusValues;
-  onRequestMetadata(a:uint32_t):FilterMetadataStatusValues;
-  onRequestBody(body_buffer_length :size_t,end_of_stream: bool):FilterDataStatusValues;
-  onRequestTrailers(a: uint32_t):FilterTrailersStatusValues;
-  onResponseHeaders(a: uint32_t):FilterHeadersStatusValues;
-  onResponseMetadata(a: uint32_t):FilterMetadataStatusValues;
-  onResponseBody(body_buffer_length :size_t,end_of_stream: bool):FilterDataStatusValues;
-  onResponseTrailers(a: uint32_t):FilterTrailersStatusValues;
-  onDone():void; // Called when the stream has completed.
-  onLog() :void;  // Called after onDone when logging is requested.
-
-
+  // Can be used to validate the configuration (e.g. in the control plane). Returns false if the
+  // configuration is invalid.
+  validateConfiguration(configuration_size: size_t):bool {return true;}
+  // Called once when the VM loads and once when each hook loads and whenever configuration changes.
+  // Returns false if the configuration is invalid.
+  onConfigure(configuration_size: size_t):bool{return true;}
+  // Called when each hook loads.  Returns false if the configuration is invalid.
+  onStart(vm_configuration_size: size_t):bool{return true;}
+  // Called when the timer goes off.
+  onTick():void{}
+  onDone():bool{return true;} // Called when the VM is being torn down.
+  done() : void{} // Report that we are now done following returning false from onDone.
 }
-class ContextBase {
-  readonly context_id : ArrayBuffer;
+
+class Context {
+  readonly context_id  :u32;
   readonly root_context:RootContext;
 
+  onNewConnection():FilterStatusValues {return FilterStatusValues.Continue;}
+  onDownstreamData(size:size_t,end: bool):FilterStatusValues {return FilterStatusValues.Continue;}
+  onUpstreamData(size:size_t,end: bool):FilterStatusValues {return FilterStatusValues.Continue;}
+  onDownstreamConnectionClose(t:PeerType):void{}
+  onUpstreamConnectionClose(t:PeerType):void{}
+
+  onRequestHeaders(a:uint32_t):FilterHeadersStatusValues {return FilterHeadersStatusValues.Continue}
+  onRequestMetadata(a:uint32_t):FilterMetadataStatusValues {return FilterMetadataStatusValues.Continue}
+  onRequestBody(body_buffer_length :size_t,end_of_stream: bool):FilterDataStatusValues {return FilterDataStatusValues.Continue}
+  onRequestTrailers(a: uint32_t):FilterTrailersStatusValues {return FilterTrailersStatusValues.Continue}
+  onResponseHeaders(a: uint32_t):FilterHeadersStatusValues {return FilterHeadersStatusValues.Continue}
+  onResponseMetadata(a: uint32_t):FilterMetadataStatusValues {return FilterMetadataStatusValues.Continue}
+  onResponseBody(body_buffer_length :size_t,end_of_stream: bool):FilterDataStatusValues {return FilterDataStatusValues.Continue}
+  onResponseTrailers(s:uint32_t):FilterTrailersStatusValues {return FilterTrailersStatusValues.Continue}
+  onDone():void{} // Called when the stream has completed.
+  onLog() :void{}  // Called after onDone when logging is requested.
+}
+/*
+class ContextBase implements Context {
+  readonly context_id : u32;
+  readonly root_context:RootContext;
+
+  constructor(context_id:u32, root_context:RootContext) {this.context_id = context_id; this.root_context = root_context;}
 
   onNewConnection():FilterStatusValues  { return FilterStatusValues.Continue; }
   onDownstreamData(size:size_t,end: bool):FilterStatusValues  { return FilterStatusValues.Continue; }
@@ -597,44 +656,60 @@ class ContextBase {
   onResponseBody(body_buffer_length :size_t,end_of_stream: bool):FilterDataStatusValues {
     return FilterDataStatusValues.Continue;
   }
-  onResponseTrailers(s:uint32_t) :FilterTrailersStatusValues{
+  onResponseTrailers(s:uint32_t):FilterTrailersStatusValues{
     return FilterTrailersStatusValues.Continue;
   }
-  onDone():void {} // Called when the stream has completed.
-  onLog() :void {}  // Called after onDone when logging is requested.
-
+  onDone():void { } // Called when the stream has completed.
+  onLog() :void { }  // Called after onDone when logging is requested.
 }
+ */
 
-interface RootContext {
-
-  readonly root_id : ArrayBuffer;
-
-  // Can be used to validate the configuration (e.g. in the control plane). Returns false if the
-  // configuration is invalid.
-  validateConfiguration(configuration_size: size_t):bool;
-  // Called once when the VM loads and once when each hook loads and whenever configuration changes.
-  // Returns false if the configuration is invalid.
-  onConfigure(configuration_size: size_t):bool;
-  // Called when each hook loads.  Returns false if the configuration is invalid.
-  onStart(vm_configuration_size: size_t):bool;
-  // Called when the timer goes off.
-  onTick():void;
-
-  onDone():bool; // Called when the VM is being torn down.
-  done() : void; // Report that we are now done following returning false from onDone.
-  createContext(context_id:u32): Context;
-}
-
-function getRootContext(root_context_id : u32) : RootContext {
+function ensureContext(context_id:u32, root_context_id : u32) : Context {
   throw 123;
   //return new RootContext();
 }
 
+function getContext(context_id:u32) : Context {
+  throw 123;
+  //return new RootContext();
+}
+
+function ensureRootContext(root_context_id : u32) : RootContext {
+// let root_id = get_property("plugin_root_id");
+  throw 123;
+  //return new RootContext();
+}
+
+///// wrappers for calls in. some reason cant call an interface from an exported function
 function on_vm_start(root_context_id: uint32_t, configuration_size: uint32_t): uint32_t {
-  getRootContext(root_context_id).onStart(configuration_size);
+  let root_context = ensureRootContext(root_context_id);
+  let result = root_context.onStart(configuration_size);
   return 0;
 }
 
+function on_validate_configuration(root_context_id: uint32_t, configuration_size: uint32_t): uint32_t {
+  return ensureRootContext(root_context_id).validateConfiguration(configuration_size)?1:0;
+}
+
+function on_configure(root_context_id: uint32_t, configuration_size: uint32_t): uint32_t {
+  return ensureRootContext(root_context_id).onConfigure(configuration_size)?1:0;
+}
+
+function on_tick(root_context_id: uint32_t): void {
+  ensureRootContext(root_context_id).onTick();
+}
+
+function on_context_create(context_id: uint32_t, root_context_id: uint32_t): void {
+  if (root_context_id != 0) {
+    ensureContext(context_id, root_context_id);
+  } else {
+    ensureRootContext(context_id);
+  }
+}
+
+function on_request_headers(context_id: uint32_t, headers: uint32_t): FilterHeadersStatus {
+  return  getContext(context_id).onRequestHeaders(headers) as FilterHeadersStatus;
+}
 
 ///// CALLS IN
 
@@ -642,14 +717,25 @@ function on_vm_start(root_context_id: uint32_t, configuration_size: uint32_t): u
 export function proxy_on_vm_start(root_context_id: uint32_t, configuration_size: uint32_t): uint32_t {
   return on_vm_start(root_context_id, configuration_size);
 }
-export function proxy_validate_configuration(root_context_id: uint32_t, configuration_size: uint32_t): uint32_t { return 0; }
-export function proxy_on_configure(root_context_id: uint32_t, configuration_size: uint32_t): uint32_t { return 0; }
-export function proxy_on_tick(root_context_id: uint32_t): void { }
+export function proxy_validate_configuration(root_context_id: uint32_t, configuration_size: uint32_t): uint32_t {
+  return on_validate_configuration(root_context_id, configuration_size);
+}
+export function proxy_on_configure(root_context_id: uint32_t, configuration_size: uint32_t): uint32_t {
+  return on_configure(root_context_id, configuration_size);
+}
+export function proxy_on_tick(root_context_id: uint32_t): void {
+  on_tick(root_context_id);
+}
 export function proxy_on_queue_ready(root_context_id: uint32_t, token: uint32_t): void { }
 
 // Stream calls.
-export function proxy_on_create(context_id: uint32_t, root_context_id: uint32_t): void { }
-export function proxy_on_request_headers(context_id: uint32_t, headers: uint32_t): FilterHeadersStatus { return 0; }
+export function proxy_on_context_create(context_id: uint32_t, root_context_id: uint32_t): void  {
+  on_context_create(context_id, root_context_id);
+}
+
+export function proxy_on_request_headers(context_id: uint32_t, headers: uint32_t): FilterHeadersStatus {
+  return on_request_headers(context_id, headers);
+}
 export function proxy_on_request_body(context_id: uint32_t, body_buffer_length: uint32_t, end_of_stream: uint32_t): FilterDataStatus { return 0; }
 export function proxy_on_request_trailers(context_id: uint32_t, trailers: uint32_t): FilterTrailersStatus { return 0; }
 export function proxy_on_request_metadata(context_id: uint32_t, nelements: uint32_t): FilterMetadataStatus { return 0; }
