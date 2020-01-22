@@ -626,43 +626,6 @@ class Context {
   onDone(): void { } // Called when the stream has completed.
   onLog(): void { }  // Called after onDone when logging is requested.
 }
-/*
-class ContextBase implements Context {
-  readonly context_id : u32;
-  readonly root_context:RootContext;
-
-  constructor(context_id:u32, root_context:RootContext) {this.context_id = context_id; this.root_context = root_context;}
-
-  onNewConnection():FilterStatusValues  { return FilterStatusValues.Continue; }
-  onDownstreamData(size:size_t,end: bool):FilterStatusValues  { return FilterStatusValues.Continue; }
-  onUpstreamData(size:size_t,end: bool):FilterStatusValues  { return FilterStatusValues.Continue; }
-  onDownstreamConnectionClose(p:PeerType) :void{}
-  onUpstreamConnectionClose(p:PeerType) :void{}
-
-  onRequestHeaders(a:uint32_t):FilterHeadersStatusValues{ return FilterHeadersStatusValues.Continue; }
-  onRequestMetadata(a:uint32_t):FilterMetadataStatusValues {
-    return FilterMetadataStatusValues.Continue;
-  }
-  onRequestBody(body_buffer_length :size_t,end_of_stream: bool):FilterDataStatusValues {
-    return FilterDataStatusValues.Continue;
-  }
-  onRequestTrailers(a: uint32_t):FilterTrailersStatusValues {
-    return FilterTrailersStatusValues.Continue;
-  }
-  onResponseHeaders(a: uint32_t):FilterHeadersStatusValues { return FilterHeadersStatusValues.Continue; }
-  onResponseMetadata(a: uint32_t):FilterMetadataStatusValues {
-    return FilterMetadataStatusValues.Continue;
-  }
-  onResponseBody(body_buffer_length :size_t,end_of_stream: bool):FilterDataStatusValues {
-    return FilterDataStatusValues.Continue;
-  }
-  onResponseTrailers(s:uint32_t):FilterTrailersStatusValues{
-    return FilterTrailersStatusValues.Continue;
-  }
-  onDone():void { } // Called when the stream has completed.
-  onLog() :void { }  // Called after onDone when logging is requested.
-}
- */
 
 function ensureContext(context_id: u32, root_context_id: u32): Context {
   throw 123;
@@ -680,26 +643,25 @@ function ensureRootContext(root_context_id: u32): RootContext {
   //return new RootContext();
 }
 
-///// wrappers for calls in. some reason cant call an interface from an exported function
-function on_vm_start(root_context_id: uint32_t, configuration_size: uint32_t): uint32_t {
-  let root_context = ensureRootContext(root_context_id);
-  let result = root_context.onStart(configuration_size);
-  return 0;
-}
+///// CALLS IN
 
-function on_validate_configuration(root_context_id: uint32_t, configuration_size: uint32_t): uint32_t {
+// Calls in.
+export function proxy_on_vm_start(root_context_id: uint32_t, configuration_size: uint32_t): uint32_t {
+  return ensureRootContext(root_context_id).onStart(configuration_size) ? 1 : 0;
+}
+export function proxy_validate_configuration(root_context_id: uint32_t, configuration_size: uint32_t): uint32_t {
   return ensureRootContext(root_context_id).validateConfiguration(configuration_size) ? 1 : 0;
 }
-
-function on_configure(root_context_id: uint32_t, configuration_size: uint32_t): uint32_t {
+export function proxy_on_configure(root_context_id: uint32_t, configuration_size: uint32_t): uint32_t {
   return ensureRootContext(root_context_id).onConfigure(configuration_size) ? 1 : 0;
 }
-
-function on_tick(root_context_id: uint32_t): void {
+export function proxy_on_tick(root_context_id: uint32_t): void {
   ensureRootContext(root_context_id).onTick();
 }
+export function proxy_on_queue_ready(root_context_id: uint32_t, token: uint32_t): void { }
 
-function on_context_create(context_id: uint32_t, root_context_id: uint32_t): void {
+// Stream calls.
+export function proxy_on_context_create(context_id: uint32_t, root_context_id: uint32_t): void {
   if (root_context_id != 0) {
     ensureContext(context_id, root_context_id);
   } else {
@@ -707,34 +669,8 @@ function on_context_create(context_id: uint32_t, root_context_id: uint32_t): voi
   }
 }
 
-function on_request_headers(context_id: uint32_t, headers: uint32_t): FilterHeadersStatus {
-  return getContext(context_id).onRequestHeaders(headers) as FilterHeadersStatus;
-}
-
-///// CALLS IN
-
-// Calls in.
-export function proxy_on_vm_start(root_context_id: uint32_t, configuration_size: uint32_t): uint32_t {
-  return on_vm_start(root_context_id, configuration_size);
-}
-export function proxy_validate_configuration(root_context_id: uint32_t, configuration_size: uint32_t): uint32_t {
-  return on_validate_configuration(root_context_id, configuration_size);
-}
-export function proxy_on_configure(root_context_id: uint32_t, configuration_size: uint32_t): uint32_t {
-  return on_configure(root_context_id, configuration_size);
-}
-export function proxy_on_tick(root_context_id: uint32_t): void {
-  on_tick(root_context_id);
-}
-export function proxy_on_queue_ready(root_context_id: uint32_t, token: uint32_t): void { }
-
-// Stream calls.
-export function proxy_on_context_create(context_id: uint32_t, root_context_id: uint32_t): void {
-  on_context_create(context_id, root_context_id);
-}
-
 export function proxy_on_request_headers(context_id: uint32_t, headers: uint32_t): FilterHeadersStatus {
-  return on_request_headers(context_id, headers);
+  return getContext(context_id).onRequestHeaders(headers) as FilterHeadersStatus;
 }
 export function proxy_on_request_body(context_id: uint32_t, body_buffer_length: uint32_t, end_of_stream: uint32_t): FilterDataStatus { return 0; }
 export function proxy_on_request_trailers(context_id: uint32_t, trailers: uint32_t): FilterTrailersStatus { return 0; }
