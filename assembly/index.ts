@@ -358,7 +358,12 @@ class WasmData {
   constructor() { }
 }
 
-type Headers = Map<ArrayBuffer, ArrayBuffer>;
+class HeaderPair {
+  key : ArrayBuffer;
+  value : ArrayBuffer;
+}
+
+type Headers = Array<HeaderPair>;
 
 /////////////////////////// helper functions
 
@@ -444,32 +449,30 @@ export function set_property(path: string, data: ArrayBuffer): WasmResultValues 
 
 function pairsSize(headers: Headers): usize {
   let size = 4; // number of headers
-  let all_keys = headers.keys();
   // for in loop doesn't seem to be supported..
-  for (let i = 0; i < all_keys.length; i++) {
-    let key = all_keys[i];
+  for (let i = 0; i < headers.length; i++) {
+    let header = headers[i];
     size += 8;                   // size of key, size of value
-    size += key.byteLength + 1;  // null terminated key
-    size += headers[key].byteLength + 1; // null terminated value
+    size += header.key.byteLength + 1;  // null terminated key
+    size += header.value.byteLength + 1; // null terminated value
   }
   return size;
 }
 
 function serializeHeaders(headers: Headers): ArrayBuffer {
   let result = new ArrayBuffer(pairsSize(headers));
-  let sizes = Uint32Array.wrap(result, 0, 1 + headers.size);
-  sizes[0] = headers.size;
+  let sizes = Uint32Array.wrap(result, 0, 1 + headers.length);
+  sizes[0] = headers.length;
 
   // header sizes:
   let index = 1;
 
-  let keys /*: []ArrayBuffer*/ = headers.keys();
   // for in loop doesn't seem to be supported..
-  for (let i = 0; i < keys.length; i++) {
-    let key = keys[i];
-    sizes[index] = key.byteLength;
+  for (let i = 0; i < headers.length; i++) {
+    let header = headers[i];
+    sizes[index] = header.key.byteLength;
     index++;
-    sizes[index] = headers[key].byteLength;
+    sizes[index] = header.value.byteLength;
     index++;
   }
 
@@ -477,10 +480,10 @@ function serializeHeaders(headers: Headers): ArrayBuffer {
 
   let currentOffset = 0;
   // for in loop doesn't seem to be supported..
-  for (let i = 0; i < keys.length; i++) {
-    let key = keys[i];
+  for (let i = 0; i < headers.length; i++) {
+    let header = headers[i];
     // i'm sure there's a better way to copy, i just don't know what it is :/
-    let wrappedKey = Uint8Array.wrap(key);
+    let wrappedKey = Uint8Array.wrap(header.key);
     let keyData = data.subarray(currentOffset, wrappedKey.byteLength);
     for (let i = 0; i < wrappedKey.byteLength; i++) {
       keyData[i] = wrappedKey[i];
@@ -488,7 +491,7 @@ function serializeHeaders(headers: Headers): ArrayBuffer {
     currentOffset += wrappedKey.byteLength + 1; // + 1 for terminating nil
 
 
-    let wrappedValue = Uint8Array.wrap(headers[key]);
+    let wrappedValue = Uint8Array.wrap(header.value);
     let valueData = data.subarray(currentOffset, wrappedValue.byteLength);
     for (let i = 0; i < wrappedValue.byteLength; i++) {
       valueData[i] = wrappedValue[i];
