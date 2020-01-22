@@ -74,7 +74,7 @@ export declare function proxy_send_local_response(response_code: uint32_t, respo
   additional_response_header_pairs_ptr: CharPtr,
   additional_response_header_pairs_size: size_t, grpc_status: uint32_t): WasmResult;
 // @ts-ignore: decorator
-  @external("env", "proxy_clear_route_cache")
+@external("env", "proxy_clear_route_cache")
 export declare function proxy_clear_route_cache(): WasmResult;
 
 // SharedData
@@ -386,7 +386,7 @@ export function abort_proc_exit(
 function CHECK_RESULT(c: WasmResult): void {
   if (c != WasmResultValues.Ok) {
     log(LogLevelValues.critical, c.toString());
-    abort_proc_exit(":(", null,0,0);
+    abort_proc_exit(":(", null, 0, 0);
   }
 }
 
@@ -589,42 +589,42 @@ export function done(): WasmResult { return proxy_done(); }
 
 abstract class RootContext {
 
-  readonly root_id : ArrayBuffer;
+  readonly root_id: ArrayBuffer;
 
   // Can be used to validate the configuration (e.g. in the control plane). Returns false if the
   // configuration is invalid.
-  validateConfiguration(configuration_size: size_t):bool {return true;}
+  validateConfiguration(configuration_size: size_t): bool { return true; }
   // Called once when the VM loads and once when each hook loads and whenever configuration changes.
   // Returns false if the configuration is invalid.
-  onConfigure(configuration_size: size_t):bool{return true;}
+  onConfigure(configuration_size: size_t): bool { return true; }
   // Called when each hook loads.  Returns false if the configuration is invalid.
-  onStart(vm_configuration_size: size_t):bool{return true;}
+  onStart(vm_configuration_size: size_t): bool { return true; }
   // Called when the timer goes off.
-  onTick():void{}
-  onDone():bool{return true;} // Called when the VM is being torn down.
-  done() : void{} // Report that we are now done following returning false from onDone.
+  onTick(): void { }
+  onDone(): bool { return true; } // Called when the VM is being torn down.
+  done(): void { } // Report that we are now done following returning false from onDone.
 }
 
 class Context {
-  readonly context_id  :u32;
-  readonly root_context:RootContext;
+  readonly context_id: u32;
+  readonly root_context: RootContext;
 
-  onNewConnection():FilterStatusValues {return FilterStatusValues.Continue;}
-  onDownstreamData(size:size_t,end: bool):FilterStatusValues {return FilterStatusValues.Continue;}
-  onUpstreamData(size:size_t,end: bool):FilterStatusValues {return FilterStatusValues.Continue;}
-  onDownstreamConnectionClose(t:PeerType):void{}
-  onUpstreamConnectionClose(t:PeerType):void{}
+  onNewConnection(): FilterStatusValues { return FilterStatusValues.Continue; }
+  onDownstreamData(size: size_t, end: bool): FilterStatusValues { return FilterStatusValues.Continue; }
+  onUpstreamData(size: size_t, end: bool): FilterStatusValues { return FilterStatusValues.Continue; }
+  onDownstreamConnectionClose(t: PeerType): void { }
+  onUpstreamConnectionClose(t: PeerType): void { }
 
-  onRequestHeaders(a:uint32_t):FilterHeadersStatusValues {return FilterHeadersStatusValues.Continue}
-  onRequestMetadata(a:uint32_t):FilterMetadataStatusValues {return FilterMetadataStatusValues.Continue}
-  onRequestBody(body_buffer_length :size_t,end_of_stream: bool):FilterDataStatusValues {return FilterDataStatusValues.Continue}
-  onRequestTrailers(a: uint32_t):FilterTrailersStatusValues {return FilterTrailersStatusValues.Continue}
-  onResponseHeaders(a: uint32_t):FilterHeadersStatusValues {return FilterHeadersStatusValues.Continue}
-  onResponseMetadata(a: uint32_t):FilterMetadataStatusValues {return FilterMetadataStatusValues.Continue}
-  onResponseBody(body_buffer_length :size_t,end_of_stream: bool):FilterDataStatusValues {return FilterDataStatusValues.Continue}
-  onResponseTrailers(s:uint32_t):FilterTrailersStatusValues {return FilterTrailersStatusValues.Continue}
-  onDone():void{} // Called when the stream has completed.
-  onLog() :void{}  // Called after onDone when logging is requested.
+  onRequestHeaders(a: uint32_t): FilterHeadersStatusValues { return FilterHeadersStatusValues.Continue }
+  onRequestMetadata(a: uint32_t): FilterMetadataStatusValues { return FilterMetadataStatusValues.Continue }
+  onRequestBody(body_buffer_length: size_t, end_of_stream: bool): FilterDataStatusValues { return FilterDataStatusValues.Continue }
+  onRequestTrailers(a: uint32_t): FilterTrailersStatusValues { return FilterTrailersStatusValues.Continue }
+  onResponseHeaders(a: uint32_t): FilterHeadersStatusValues { return FilterHeadersStatusValues.Continue }
+  onResponseMetadata(a: uint32_t): FilterMetadataStatusValues { return FilterMetadataStatusValues.Continue }
+  onResponseBody(body_buffer_length: size_t, end_of_stream: bool): FilterDataStatusValues { return FilterDataStatusValues.Continue }
+  onResponseTrailers(s: uint32_t): FilterTrailersStatusValues { return FilterTrailersStatusValues.Continue }
+  onDone(): void { } // Called when the stream has completed.
+  onLog(): void { }  // Called after onDone when logging is requested.
 }
 /*
 class ContextBase implements Context {
@@ -664,18 +664,18 @@ class ContextBase implements Context {
 }
  */
 
-function ensureContext(context_id:u32, root_context_id : u32) : Context {
+function ensureContext(context_id: u32, root_context_id: u32): Context {
   throw 123;
   //return new RootContext();
 }
 
-function getContext(context_id:u32) : Context {
+function getContext(context_id: u32): Context {
   throw 123;
   //return new RootContext();
 }
 
-function ensureRootContext(root_context_id : u32) : RootContext {
-// let root_id = get_property("plugin_root_id");
+function ensureRootContext(root_context_id: u32): RootContext {
+  // let root_id = get_property("plugin_root_id");
   throw 123;
   //return new RootContext();
 }
@@ -688,11 +688,11 @@ function on_vm_start(root_context_id: uint32_t, configuration_size: uint32_t): u
 }
 
 function on_validate_configuration(root_context_id: uint32_t, configuration_size: uint32_t): uint32_t {
-  return ensureRootContext(root_context_id).validateConfiguration(configuration_size)?1:0;
+  return ensureRootContext(root_context_id).validateConfiguration(configuration_size) ? 1 : 0;
 }
 
 function on_configure(root_context_id: uint32_t, configuration_size: uint32_t): uint32_t {
-  return ensureRootContext(root_context_id).onConfigure(configuration_size)?1:0;
+  return ensureRootContext(root_context_id).onConfigure(configuration_size) ? 1 : 0;
 }
 
 function on_tick(root_context_id: uint32_t): void {
@@ -708,7 +708,7 @@ function on_context_create(context_id: uint32_t, root_context_id: uint32_t): voi
 }
 
 function on_request_headers(context_id: uint32_t, headers: uint32_t): FilterHeadersStatus {
-  return  getContext(context_id).onRequestHeaders(headers) as FilterHeadersStatus;
+  return getContext(context_id).onRequestHeaders(headers) as FilterHeadersStatus;
 }
 
 ///// CALLS IN
@@ -729,7 +729,7 @@ export function proxy_on_tick(root_context_id: uint32_t): void {
 export function proxy_on_queue_ready(root_context_id: uint32_t, token: uint32_t): void { }
 
 // Stream calls.
-export function proxy_on_context_create(context_id: uint32_t, root_context_id: uint32_t): void  {
+export function proxy_on_context_create(context_id: uint32_t, root_context_id: uint32_t): void {
   on_context_create(context_id, root_context_id);
 }
 
