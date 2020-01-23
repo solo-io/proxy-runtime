@@ -521,7 +521,6 @@ export function resolve_shared_queue(vm_id, vm_id_size, queue_name_ptr, queue_na
 export function dequeue_shared_queue(token, data_ptr, data_size) { return 0; },
 export function enqueue_shared_queue(token, data_ptr, data_size) { return 0; },
 */
-
 export function add_header_map_value(typ: HeaderMapTypeValues, key: ArrayBuffer, value: ArrayBuffer): WasmResultValues {
   return proxy_add_header_map_value(typ, changetype<usize>(key), key.byteLength, changetype<usize>(value), value.byteLength);
 }
@@ -590,9 +589,9 @@ export function set_effective_context(effective_context_id: u32): WasmResult {
 export function done(): WasmResult { return proxy_done(); }
 /////// runtime support
 
-abstract class RootContext {
+class RootContext {
 
-  readonly root_id: ArrayBuffer;
+  readonly root_id: string;
 
   // Can be used to validate the configuration (e.g. in the control plane). Returns false if the
   // configuration is invalid.
@@ -630,21 +629,60 @@ class Context {
   onLog(): void { }  // Called after onDone when logging is requested.
 }
 
-function ensureContext(context_id: u32, root_context_id: u32): Context {
-  throw 123;
-  //return new RootContext();
-}
-
 function getContext(context_id: u32): Context {
   throw 123;
   //return new RootContext();
 }
 
+
+function get_plugin_root_id(): string {
+
+  let root_id = get_property("plugin_root_id");
+  if (root_id.byteLength == 0){
+    return "";
+  }
+  return String.UTF8.decode(root_id);
+}
+
+let root_context_map = new Map<u32, RootContext>();
 function ensureRootContext(root_context_id: u32): RootContext {
-  // let root_id = get_property("plugin_root_id");
+  if (root_context_map.has(root_context_id)) {
+    return root_context_map[root_context_id];
+  }
+  let root_id = get_plugin_root_id();
+  if (root_factory.has(root_id)) {
+    let root_context_func = root_factory.get(root_id);
+    let root_context = root_context_func();
+
+    root_context_map[root_context_id] = root_context;
+    return root_context;
+  } else {
+    // root_context_map[root_id] = root_context;
+  }
   throw 123;
   //return new RootContext();
 }
+
+let root_factory = new Map<string, () => RootContext>();
+
+let context_map = new Map<u32, Context>();
+function ensureContext(context_id: u32, root_context_id: u32): Context {
+  if (context_map.has(context_id)) {
+    return context_map[context_id];
+  }
+  let root_context = root_context_map[root_context_id];
+  
+  if (context_factory.has(root_context.root_id)) {
+    let factory = context_factory.get(root_context.root_id);
+    let context = factory(root_context);
+    context_map[context_id] = context;
+    return context;
+  } else {
+  }
+  throw 123;
+  //return new RootContext();
+}
+let context_factory = new Map<string, (r:RootContext) => Context>();
 
 ///// CALLS IN
 
