@@ -629,12 +629,6 @@ class Context {
   onLog(): void { }  // Called after onDone when logging is requested.
 }
 
-function getContext(context_id: u32): Context {
-  throw 123;
-  //return new RootContext();
-}
-
-
 function get_plugin_root_id(): string {
 
   let root_id = get_property("plugin_root_id");
@@ -666,6 +660,11 @@ function ensureRootContext(root_context_id: u32): RootContext {
 let root_factory = new Map<string, () => RootContext>();
 
 let context_map = new Map<u32, Context>();
+
+function getContext(context_id: u32): Context {
+  return context_map[context_id];
+}
+
 function ensureContext(context_id: u32, root_context_id: u32): Context {
   if (context_map.has(context_id)) {
     return context_map[context_id];
