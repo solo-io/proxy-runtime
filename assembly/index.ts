@@ -765,3 +765,7 @@ class AddHeader extends Context {
     return FilterHeadersStatusValues.Continue;
   }
 }
+function add_to_factory():RootContext {
+  return new AddHeaderRoot();
+}
+root_factory.set("add_header", add_to_factory);
