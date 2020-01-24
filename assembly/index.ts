@@ -524,6 +524,11 @@ export function enqueue_shared_queue(token, data_ptr, data_size) { return 0; },
 export function add_header_map_value(typ: HeaderMapTypeValues, key: ArrayBuffer, value: ArrayBuffer): WasmResultValues {
   return proxy_add_header_map_value(typ, changetype<usize>(key), key.byteLength, changetype<usize>(value), value.byteLength);
 }
+export function add_header_map_value_string(typ: HeaderMapTypeValues, key: string, value: string): WasmResultValues {
+  let key_arr = String.UTF8.encode(key);
+  let value_arr = String.UTF8.encode(value);
+  return proxy_add_header_map_value(typ, changetype<usize>(key_arr), key_arr.byteLength, changetype<usize>(value_arr), value_arr.byteLength);
+}
 export function get_header_map_value(typ: HeaderMapTypeValues, key: ArrayBuffer): ArrayBuffer {
   let result = proxy_get_header_map_value(typ, changetype<usize>(key), key.byteLength, globalArrayBufferReference.bufferPtr(), globalArrayBufferReference.sizePtr());
   if (result == WasmResultValues.Ok) {
@@ -589,7 +594,12 @@ export function set_effective_context(effective_context_id: u32): WasmResult {
 export function done(): WasmResult { return proxy_done(); }
 /////// runtime support
 
-class RootContext {
+class BaseContext{
+  createContext(context_id:u32):Context{
+    throw 123;
+  }
+}
+class RootContext extends BaseContext {
 
   readonly root_id: string;
 
@@ -651,7 +661,9 @@ function ensureRootContext(root_context_id: u32): RootContext {
     root_context_map[root_context_id] = root_context;
     return root_context;
   } else {
-    // root_context_map[root_id] = root_context;
+    let root_context = new RootContext();
+    root_context_map[root_context_id] = root_context;
+    return root_context;
   }
   throw 123;
   //return new RootContext();
@@ -672,8 +684,9 @@ function ensureContext(context_id: u32, root_context_id: u32): Context {
   let root_context = root_context_map[root_context_id];
   
   if (context_factory.has(root_context.root_id)) {
-    let factory = context_factory.get(root_context.root_id);
-    let context = factory(root_context);
+   // let factory = context_factory.get(root_context.root_id);
+   // let context = factory(root_context);
+   let context = root_context.createContext(context_id);
     context_map[context_id] = context;
     return context;
   } else {
@@ -681,6 +694,7 @@ function ensureContext(context_id: u32, root_context_id: u32): Context {
   throw 123;
   //return new RootContext();
 }
+
 let context_factory = new Map<string, (r:RootContext) => Context>();
 
 ///// CALLS IN
@@ -734,3 +748,20 @@ export function proxy_on_done(context_id: uint32_t): uint32_t { return 0; }
 export function proxy_on_log(context_id: uint32_t): void { }
 // The Context in the proxy has been destroyed and no further calls will be coming.
 export function proxy_on_delete(context_id: uint32_t): void { }
+
+
+
+/////////////////////////////////////////////////////// code to test; move this to a separate module.
+
+class AddHeaderRoot extends RootContext {
+  createContext(context_id:u32):Context{
+    return new AddHeader();
+  }
+}
+
+class AddHeader extends Context {
+  onRequestHeaders(a: uint32_t): FilterHeadersStatusValues {
+    add_header_map_value_string(HeaderMapTypeValues.RequestHeaders, "yuval", "kohavi");
+    return FilterHeadersStatusValues.Continue;
+  }
+}
