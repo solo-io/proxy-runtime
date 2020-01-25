@@ -398,11 +398,11 @@ function CHECK_RESULT(c: WasmResult): void {
 /////////////////// wrappers below
 /////////////////// these are the same as the imports above, but with more native typescript interface.
 
-function log(level: LogLevel, logMessage: string): void {
+function log(level: LogLevelValues, logMessage: string): void {
   // from the docs:
   // Like JavaScript, AssemblyScript stores strings in UTF-16 encoding represented by the API as UCS-2, 
   let buffer = String.UTF8.encode(logMessage);
-  proxy_log(0, changetype<usize>(buffer), buffer.byteLength);
+  proxy_log(level as LogLevel, changetype<usize>(buffer), buffer.byteLength);
 }
 
 // temporarily exported the function for testing
@@ -594,14 +594,21 @@ export function set_effective_context(effective_context_id: u32): WasmResult {
 export function done(): WasmResult { return proxy_done(); }
 /////// runtime support
 
-class BaseContext{
-  createContext(context_id:u32):Context{
-    throw 123;
-  }
+abstract class BaseContext{
+ // abstract createContext(context_id:u32):Context;
 }
-class RootContext extends BaseContext {
+type CreateCtxFunc = (context_id:u32)=>Context;
+abstract class RootContext extends BaseContext {
 
   readonly root_id: string;
+  // hack to workaround lack of OOP
+  readonly createContext: CreateCtxFunc;
+
+  constructor(root_id: string, createContext : CreateCtxFunc) {
+    super();
+    this.root_id = root_id;
+    this.createContext = createContext;
+  }
 
   // Can be used to validate the configuration (e.g. in the control plane). Returns false if the
   // configuration is invalid.
@@ -617,9 +624,25 @@ class RootContext extends BaseContext {
   done(): void { } // Report that we are now done following returning false from onDone.
 }
 
+class EmptyRootContext extends RootContext {
+  constructor(){
+    super("", EmptyRootContext_createContext);
+  }
+}
+
+function EmptyRootContext_createContext(context_id:u32):Context{
+  log(LogLevelValues.critical, "base ctx: can't create context")
+  throw 123;
+}
 class Context {
   readonly context_id: u32;
   readonly root_context: RootContext;
+
+  onResponseHeaders : (a: uint32_t) => FilterHeadersStatusValues
+  constructor(){
+    this.onResponseHeaders =  (a: uint32_t) => { return FilterHeadersStatusValues.Continue }
+  }
+
 
   onNewConnection(): FilterStatusValues { return FilterStatusValues.Continue; }
   onDownstreamData(size: size_t, end: bool): FilterStatusValues { return FilterStatusValues.Continue; }
@@ -631,7 +654,7 @@ class Context {
   onRequestMetadata(a: uint32_t): FilterMetadataStatusValues { return FilterMetadataStatusValues.Continue }
   onRequestBody(body_buffer_length: size_t, end_of_stream: bool): FilterDataStatusValues { return FilterDataStatusValues.Continue }
   onRequestTrailers(a: uint32_t): FilterTrailersStatusValues { return FilterTrailersStatusValues.Continue }
-  onResponseHeaders(a: uint32_t): FilterHeadersStatusValues { return FilterHeadersStatusValues.Continue }
+  //onResponseHeaders(a: uint32_t): FilterHeadersStatusValues { return FilterHeadersStatusValues.Continue }
   onResponseMetadata(a: uint32_t): FilterMetadataStatusValues { return FilterMetadataStatusValues.Continue }
   onResponseBody(body_buffer_length: size_t, end_of_stream: bool): FilterDataStatusValues { return FilterDataStatusValues.Continue }
   onResponseTrailers(s: uint32_t): FilterTrailersStatusValues { return FilterTrailersStatusValues.Continue }
@@ -659,14 +682,17 @@ function ensureRootContext(root_context_id: u32): RootContext {
     let root_context = root_context_func();
 
     root_context_map[root_context_id] = root_context;
-    return root_context;
-  } else {
-    let root_context = new RootContext();
-    root_context_map[root_context_id] = root_context;
+
+    log(LogLevelValues.warn, "returning context " + root_context.root_id);
     return root_context;
   }
-  throw 123;
-  //return new RootContext();
+
+  log(LogLevelValues.warn, "did not find root id " + root_id)
+
+  let root_context = new EmptyRootContext();
+  root_context_map[root_context_id] = root_context;
+  return root_context;
+
 }
 
 let root_factory = new Map<string, () => RootContext>();
@@ -683,15 +709,18 @@ function ensureContext(context_id: u32, root_context_id: u32): Context {
   }
   let root_context = root_context_map[root_context_id];
   
-  if (context_factory.has(root_context.root_id)) {
+//  if (context_factory.has(root_context.root_id)) {
    // let factory = context_factory.get(root_context.root_id);
    // let context = factory(root_context);
-   let context = root_context.createContext(context_id);
-    context_map[context_id] = context;
-    return context;
-  } else {
-  }
-  throw 123;
+  let context = root_context.createContext(context_id);
+  context_map[context_id] = context;
+  return context;
+//   } 
+  
+  log(LogLevelValues.warn, "ensureContext: did not find root id " + root_context.root_id)
+//  let context = new Context();
+//  context_map[context_id] = context;
+//  return context;
   //return new RootContext();
 }
 
@@ -729,7 +758,9 @@ export function proxy_on_request_headers(context_id: uint32_t, headers: uint32_t
 export function proxy_on_request_body(context_id: uint32_t, body_buffer_length: uint32_t, end_of_stream: uint32_t): FilterDataStatus { return 0; }
 export function proxy_on_request_trailers(context_id: uint32_t, trailers: uint32_t): FilterTrailersStatus { return 0; }
 export function proxy_on_request_metadata(context_id: uint32_t, nelements: uint32_t): FilterMetadataStatus { return 0; }
-export function proxy_on_response_headers(context_id: uint32_t, headers: uint32_t): FilterHeadersStatus { return 0; }
+export function proxy_on_response_headers(context_id: uint32_t, headers: uint32_t): FilterHeadersStatus { 
+  return getContext(context_id).onResponseHeaders(headers) as FilterHeadersStatus;
+}
 export function proxy_on_response_body(context_id: uint32_t, body_buffer_length: uint32_t, end_of_stream: uint32_t): FilterDataStatus { return 0; }
 export function proxy_on_response_trailers(context_id: uint32_t, trailers: uint32_t): FilterTrailersStatus { return 0; }
 export function proxy_on_response_metadata(context_id: uint32_t, nelements: uint32_t): FilterMetadataStatus { return 0; }
@@ -754,14 +785,29 @@ export function proxy_on_delete(context_id: uint32_t): void { }
 /////////////////////////////////////////////////////// code to test; move this to a separate module.
 
 class AddHeaderRoot extends RootContext {
-  createContext(context_id:u32):Context{
-    return new AddHeader();
+  constructor() {
+    super( "add_header", AddHeaderRoot_createContext);
+    log(LogLevelValues.warn, "AddHeaderRoot created");
+
   }
 }
 
+function AddHeaderRoot_createContext(context_id:u32):Context{
+  return new AddHeader();
+}
+
 class AddHeader extends Context {
-  onRequestHeaders(a: uint32_t): FilterHeadersStatusValues {
-    add_header_map_value_string(HeaderMapTypeValues.RequestHeaders, "yuval", "kohavi");
+  constructor(){
+    super();
+    // OOP HACK
+    this.onResponseHeaders =  (a: uint32_t) => {
+      add_header_map_value_string(HeaderMapTypeValues.ResponseHeaders, "yuval", "kohavi");
+      return FilterHeadersStatusValues.Continue;
+    }
+  }
+
+  myonResponseHeaders(a: uint32_t): FilterHeadersStatusValues {
+    add_header_map_value_string(HeaderMapTypeValues.ResponseHeaders, "yuval", "kohavi");
     return FilterHeadersStatusValues.Continue;
   }
 }
