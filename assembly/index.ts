@@ -702,6 +702,13 @@ export abstract class RootContext extends BaseContext {
   }
   return result;
   }
+  onHttpCallResponse(token:u32, headers: uint32_t, body_size: uint32_t, trailers: uint32_t):void{
+    if (this.http_calls_.has(token) ) {
+      let callback = this.http_calls_.get(token);
+      this.http_calls_.delete(token);
+      callback.cb(callback.ctx);
+    }
+  }
 }
 
 class Context {
@@ -840,7 +847,9 @@ export function proxy_on_response_trailers(context_id: uint32_t, trailers: uint3
 export function proxy_on_response_metadata(context_id: uint32_t, nelements: uint32_t): FilterMetadataStatus { return 0; }
 
 // HTTP/gRPC.
-export function proxy_on_http_call_response(context_id: uint32_t, token: uint32_t, headers: uint32_t, body_size: uint32_t, trailers: uint32_t): void { }
+export function proxy_on_http_call_response(context_id: uint32_t, token: uint32_t, headers: uint32_t, body_size: uint32_t, trailers: uint32_t): void {
+  getRootContext(context_id).onHttpCallResponse(token, headers, body_size, trailers);
+}
 export function proxy_on_grpc_create_initial_metadata(context_id: uint32_t, token: uint32_t, headers: uint32_t): void { }
 export function proxy_on_grpc_receive_initial_metadata(context_id: uint32_t, token: uint32_t, headers: uint32_t): void { }
 export function proxy_on_grpc_trailing_metadata(context_id: uint32_t, token: uint32_t, trailers: uint32_t): void { }
