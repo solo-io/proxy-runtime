@@ -352,6 +352,9 @@ class ArrayBufferReference {
 }
 
 var globalArrayBufferReference = new ArrayBufferReference();
+let globalU32Ref = new Reference<u32>();
+let globalU64Ref = new Reference<u64>();
+let globalUsizeRef = new Reference<usize>();
 
 class WasmData {
   data: ArrayBuffer;
@@ -420,7 +423,7 @@ class StatusWithData {
 }
 
 export function get_status(): StatusWithData {
-  let status = new Reference<u32>();
+  let status = globalU32Ref;
   CHECK_RESULT(proxy_get_status(status.ptr(), globalArrayBufferReference.bufferPtr(), globalArrayBufferReference.sizePtr()));
   return { status: status.data, data: globalArrayBufferReference.toArrayBuffer() };
 }
@@ -430,7 +433,8 @@ export function set_tick_period_milliseconds(millisecond: u32): void {
 }
 
 export function get_current_time_nanoseconds(): u64 {
-  let nanos = new Reference<u64>();
+  // TODO: use global var?
+  let nanos = globalU64Ref;
   CHECK_RESULT(proxy_get_current_time_nanoseconds(nanos.ptr()));
   return nanos.data;
 }
@@ -558,7 +562,7 @@ export function remove_header_map_value(typ: HeaderMapTypeValues, key: ArrayBuff
   CHECK_RESULT(proxy_remove_header_map_value(typ, changetype<usize>(key), key.byteLength));
 }
 export function get_header_map_size(typ: HeaderMapTypeValues): usize {
-  let status = new Reference<usize>();
+  let status = globalUsizeRef;
   CHECK_RESULT(proxy_get_header_map_size(typ, status.ptr()));
   return status.data;
 }
@@ -572,9 +576,20 @@ export function get_buffer_bytes(typ: BufferTypeValues, start: u32, length: u32)
   }
   return new ArrayBuffer(0);
 }
-
 /*
-export function get_buffer_status(typ, length_ptr, flags_ptr) { return 0; },
+export function get_buffer_status(typ: BufferTypeValues): [WasmResultValues, usize, u32] { 
+  let length_ptr = globalUsizeRef;
+  let flags_ptr = globalU32Ref;
+  let result = proxy_get_buffer_status(typ, length_ptr.ptr(), flags_ptr.ptr());
+  if (result == WasmResultValues.Ok){
+    let length = length_ptr.data;
+    let flags = flags_ptr.data;
+    return [result, length, flags]
+  }
+  return [result, 0,0]
+ }
+ */
+/*
 export function http_call(uri_ptr, uri_size, header_pairs_ptr, header_pairs_size, body_ptr, body_size, trailer_pairs_ptr, trailer_pairs_size, timeout_milliseconds, token_ptr) { return 0; },
 export function grpc_call(service_ptr, service_size, service_name_ptr, service_name_size, method_name_ptr, method_name_size, request_ptr, request_size, timeout_milliseconds, token_ptr) { return 0; },
 export function grpc_stream(service_ptr, service_size, service_name_ptr, service_name_size, method_name_ptr, method_name_size, token_ptr) { return 0; },
@@ -594,15 +609,15 @@ export function set_effective_context(effective_context_id: u32): WasmResult {
 export function done(): WasmResult { return proxy_done(); }
 /////// runtime support
 
-abstract class BaseContext {
+export abstract class BaseContext {
   // abstract createContext(context_id:u32):Context;
 }
-type CreateCtxFunc = (thiz: RootContext, context_id: u32) => Context;
-abstract class RootContext extends BaseContext {
+
+export abstract class RootContext extends BaseContext {
 
   readonly root_id: string;
   // hack to workaround lack of OOP
-  createContext_: CreateCtxFunc;
+  createContext_: (thiz: RootContext, context_id: u32) => Context;
 
   constructor(root_id: string) {
     super();
@@ -700,6 +715,9 @@ let context_map = new Map<u32, Context>();
 function getContext(context_id: u32): Context {
   return context_map[context_id];
 }
+function getRootContext(context_id: u32): RootContext {
+  return root_context_map[context_id];
+}
 
 function ensureContext(context_id: u32, root_context_id: u32): Context {
   if (context_map.has(context_id)) {
@@ -728,16 +746,16 @@ let context_factory = new Map<string, (r: RootContext) => Context>();
 
 // Calls in.
 export function proxy_on_vm_start(root_context_id: uint32_t, configuration_size: uint32_t): uint32_t {
-  return ensureRootContext(root_context_id).onStart(configuration_size) ? 1 : 0;
+  return getRootContext(root_context_id).onStart(configuration_size) ? 1 : 0;
 }
 export function proxy_validate_configuration(root_context_id: uint32_t, configuration_size: uint32_t): uint32_t {
-  return ensureRootContext(root_context_id).validateConfiguration(configuration_size) ? 1 : 0;
+  return getRootContext(root_context_id).validateConfiguration(configuration_size) ? 1 : 0;
 }
 export function proxy_on_configure(root_context_id: uint32_t, configuration_size: uint32_t): uint32_t {
-  return ensureRootContext(root_context_id).onConfigure(configuration_size) ? 1 : 0;
+  return getRootContext(root_context_id).onConfigure(configuration_size) ? 1 : 0;
 }
 export function proxy_on_tick(root_context_id: uint32_t): void {
-  ensureRootContext(root_context_id).onTick();
+  getRootContext(root_context_id).onTick();
 }
 export function proxy_on_queue_ready(root_context_id: uint32_t, token: uint32_t): void { }
 
@@ -779,27 +797,6 @@ export function proxy_on_log(context_id: uint32_t): void { }
 // The Context in the proxy has been destroyed and no further calls will be coming.
 export function proxy_on_delete(context_id: uint32_t): void { }
 
-
-
-/////////////////////////////////////////////////////// code to test; move this to a separate module.
-
-class AddHeaderRoot extends RootContext {
-  constructor() {
-    super("add_header");
-    log(LogLevelValues.warn, "AddHeaderRoot created");
-
-  }
-
-  createContext(context_id: u32): Context {
-    return ContextHelper.wrap(new AddHeader());
-  }
-}
-
-function AddHeaderRoot_createContext(context_id: u32): Context {
-  return ContextHelper.wrap(new AddHeader());
-}
-
-
 class RootContextHelper<T extends RootContext> extends RootContext {
   static wrap<T extends RootContext>(that: T): RootContext {
     return new RootContextHelper<T>(that);
@@ -823,7 +820,18 @@ class ContextHelper<T extends Context> extends Context {
     // OOP HACK
     this.onResponseHeaders_ = (thiz: Context, a: uint32_t) => { return (thiz as ContextHelper<T>).that.onResponseHeaders(a); }
   }
+}
+/////////////////////////////////////////////////////// code to test; move this to a separate module.
+class AddHeaderRoot extends RootContext {
+  constructor() {
+    super("add_header");
+    log(LogLevelValues.warn, "AddHeaderRoot created");
 
+  }
+
+  createContext(context_id: u32): Context {
+    return ContextHelper.wrap(new AddHeader());
+  }
 }
 
 class AddHeader extends Context {
