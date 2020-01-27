@@ -615,11 +615,11 @@ export abstract class BaseContext {
 
 export abstract class RootContext extends BaseContext {
   // hack to workaround lack of OOP
-  createContext_: (thiz: RootContext, context_id: u32) => Context;
+  createContext_: (thiz: RootContext) => Context;
 
   constructor() {
     super();
-    this.createContext_ =  (thiz: RootContext, context_id: u32) => { return thiz.createContext(context_id); };
+    this.createContext_ =  (thiz: RootContext) => { return thiz.createContext(); };
   }
 
   // Can be used to validate the configuration (e.g. in the control plane). Returns false if the
@@ -634,16 +634,12 @@ export abstract class RootContext extends BaseContext {
   onTick(): void { }
   onDone(): bool { return true; } // Called when the VM is being torn down.
   done(): void { } // Report that we are now done following returning false from onDone.
-  createContext(context_id: u32):Context {
+  createContext():Context {
     log(LogLevelValues.critical, "base ctx: can't create context")
     throw 123;
   }
 }
 
-function EmptyRootContext_createContext(context_id: u32): Context {
-  log(LogLevelValues.critical, "base ctx: can't create context")
-  throw 123;
-}
 class Context {
   readonly context_id: u32;
   readonly root_context: RootContext;
@@ -725,7 +721,7 @@ function ensureContext(context_id: u32, root_context_id: u32): Context {
   //  if (context_factory.has(root_context.root_id)) {
   // let factory = context_factory.get(root_context.root_id);
   // let context = factory(root_context);
-  let context = root_context.createContext_(root_context, context_id);
+  let context = root_context.createContext_(root_context);
   context_map[context_id] = context;
   return context;
   //   } 
@@ -802,7 +798,7 @@ class RootContextHelper<T extends RootContext> extends RootContext {
   constructor(that: T) {
     super();
     // OOP HACK
-    this.createContext_ = (thiz: RootContext, context_id: u32) => { return (thiz as RootContextHelper<T>).that.createContext(context_id); };
+    this.createContext_ = (thiz: RootContext) => { return (thiz as RootContextHelper<T>).that.createContext(); };
   }
 }
 
@@ -827,10 +823,9 @@ class AddHeaderRoot extends RootContext {
   constructor() {
     super();
     log(LogLevelValues.warn, "AddHeaderRoot created");
-
   }
 
-  createContext(context_id: u32): Context {
+  createContext(): Context {
     return ContextHelper.wrap(new AddHeader());
   }
 }
