@@ -505,6 +505,35 @@ function serializeHeaders(headers: Headers): ArrayBuffer {
   return result;
 }
 
+
+function deserializeHeaders(headers: ArrayBuffer): Headers {
+  let numheaders = Uint32Array.wrap(headers, 0, 1)[0];
+  let sizes = Uint32Array.wrap(headers, sizeof<u32>(), 2*numheaders);
+  let data = headers.slice(sizeof<u32>()*(1+ 2*numheaders));
+  let result = new Headers();
+  let sizeIndex = 0;
+  let dataIndex = 0;
+  // for in loop doesn't seem to be supported..
+  for (let i = 0; i < numheaders; i++) {
+    let keySize = sizes[sizeIndex];
+    sizeIndex++;
+    let header_key_data = data.slice(dataIndex, dataIndex+keySize);
+    dataIndex += keySize + 1; // +1 for nil termination.
+
+    let valueSize = sizes[sizeIndex];
+    sizeIndex++;
+    let header_value_data = data.slice(dataIndex, dataIndex+valueSize);
+    dataIndex += valueSize + 1; // +1 for nil termination.
+
+    let pair = new HeaderPair();
+    pair.key = header_key_data;
+    pair.value = header_value_data;
+    result.append(pair);
+  }
+
+  return result;
+}
+
 export function continue_request(): WasmResult { return proxy_continue_request(); }
 export function continue_response(): WasmResult { return proxy_continue_response(); }
 export function send_local_response(response_code: u32, response_code_details: string, body: ArrayBuffer,
@@ -576,19 +605,28 @@ export function get_buffer_bytes(typ: BufferTypeValues, start: u32, length: u32)
   }
   return new ArrayBuffer(0);
 }
-/*
-export function get_buffer_status(typ: BufferTypeValues): [WasmResultValues, usize, u32] { 
+
+// returning tuples is not supported.
+class BufferStatusResult {
+  result :WasmResultValues;
+  length:usize;
+  flags: u32;
+}
+
+export function get_buffer_status(typ: BufferTypeValues): BufferStatusResult{
   let length_ptr = globalUsizeRef;
   let flags_ptr = globalU32Ref;
   let result = proxy_get_buffer_status(typ, length_ptr.ptr(), flags_ptr.ptr());
+  let resultTuple = new BufferStatusResult();
+  resultTuple.result = result;
   if (result == WasmResultValues.Ok){
-    let length = length_ptr.data;
-    let flags = flags_ptr.data;
-    return [result, length, flags]
+    resultTuple.length = length_ptr.data;
+    resultTuple.flags = flags_ptr.data;
+    return resultTuple;
   }
-  return [result, 0,0]
+  return resultTuple;
  }
- */
+
 /*
 export function http_call(uri_ptr, uri_size, header_pairs_ptr, header_pairs_size, body_ptr, body_size, trailer_pairs_ptr, trailer_pairs_size, timeout_milliseconds, token_ptr) { return 0; },
 export function grpc_call(service_ptr, service_size, service_name_ptr, service_name_size, method_name_ptr, method_name_size, request_ptr, request_size, timeout_milliseconds, token_ptr) { return 0; },
