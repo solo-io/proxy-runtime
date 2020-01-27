@@ -359,8 +359,8 @@ class WasmData {
 }
 
 class HeaderPair {
-  key : ArrayBuffer;
-  value : ArrayBuffer;
+  key: ArrayBuffer;
+  value: ArrayBuffer;
 }
 
 type Headers = Array<HeaderPair>;
@@ -594,17 +594,17 @@ export function set_effective_context(effective_context_id: u32): WasmResult {
 export function done(): WasmResult { return proxy_done(); }
 /////// runtime support
 
-abstract class BaseContext{
- // abstract createContext(context_id:u32):Context;
+abstract class BaseContext {
+  // abstract createContext(context_id:u32):Context;
 }
-type CreateCtxFunc = (context_id:u32)=>Context;
+type CreateCtxFunc = (context_id: u32) => Context;
 abstract class RootContext extends BaseContext {
 
   readonly root_id: string;
   // hack to workaround lack of OOP
   readonly createContext: CreateCtxFunc;
 
-  constructor(root_id: string, createContext : CreateCtxFunc) {
+  constructor(root_id: string, createContext: CreateCtxFunc) {
     super();
     this.root_id = root_id;
     this.createContext = createContext;
@@ -625,12 +625,12 @@ abstract class RootContext extends BaseContext {
 }
 
 class EmptyRootContext extends RootContext {
-  constructor(){
+  constructor() {
     super("", EmptyRootContext_createContext);
   }
 }
 
-function EmptyRootContext_createContext(context_id:u32):Context{
+function EmptyRootContext_createContext(context_id: u32): Context {
   log(LogLevelValues.critical, "base ctx: can't create context")
   throw 123;
 }
@@ -638,9 +638,9 @@ class Context {
   readonly context_id: u32;
   readonly root_context: RootContext;
 
-  onResponseHeaders : (a: uint32_t) => FilterHeadersStatusValues
-  constructor(){
-    this.onResponseHeaders =  (a: uint32_t) => { return FilterHeadersStatusValues.Continue }
+  onResponseHeaders_: (thiz: Context, a: uint32_t) => FilterHeadersStatusValues
+  constructor() {
+    this.onResponseHeaders_ = (thiz: Context, a: uint32_t) => { return FilterHeadersStatusValues.Continue }
   }
 
 
@@ -654,7 +654,7 @@ class Context {
   onRequestMetadata(a: uint32_t): FilterMetadataStatusValues { return FilterMetadataStatusValues.Continue }
   onRequestBody(body_buffer_length: size_t, end_of_stream: bool): FilterDataStatusValues { return FilterDataStatusValues.Continue }
   onRequestTrailers(a: uint32_t): FilterTrailersStatusValues { return FilterTrailersStatusValues.Continue }
-  //onResponseHeaders(a: uint32_t): FilterHeadersStatusValues { return FilterHeadersStatusValues.Continue }
+  onResponseHeaders(a: uint32_t): FilterHeadersStatusValues { return FilterHeadersStatusValues.Continue }
   onResponseMetadata(a: uint32_t): FilterMetadataStatusValues { return FilterMetadataStatusValues.Continue }
   onResponseBody(body_buffer_length: size_t, end_of_stream: bool): FilterDataStatusValues { return FilterDataStatusValues.Continue }
   onResponseTrailers(s: uint32_t): FilterTrailersStatusValues { return FilterTrailersStatusValues.Continue }
@@ -665,7 +665,7 @@ class Context {
 function get_plugin_root_id(): string {
 
   let root_id = get_property("plugin_root_id");
-  if (root_id.byteLength == 0){
+  if (root_id.byteLength == 0) {
     return "";
   }
   return String.UTF8.decode(root_id);
@@ -708,23 +708,23 @@ function ensureContext(context_id: u32, root_context_id: u32): Context {
     return context_map[context_id];
   }
   let root_context = root_context_map[root_context_id];
-  
-//  if (context_factory.has(root_context.root_id)) {
-   // let factory = context_factory.get(root_context.root_id);
-   // let context = factory(root_context);
+
+  //  if (context_factory.has(root_context.root_id)) {
+  // let factory = context_factory.get(root_context.root_id);
+  // let context = factory(root_context);
   let context = root_context.createContext(context_id);
   context_map[context_id] = context;
   return context;
-//   } 
-  
+  //   } 
+
   log(LogLevelValues.warn, "ensureContext: did not find root id " + root_context.root_id)
-//  let context = new Context();
-//  context_map[context_id] = context;
-//  return context;
+  //  let context = new Context();
+  //  context_map[context_id] = context;
+  //  return context;
   //return new RootContext();
 }
 
-let context_factory = new Map<string, (r:RootContext) => Context>();
+let context_factory = new Map<string, (r: RootContext) => Context>();
 
 ///// CALLS IN
 
@@ -758,8 +758,9 @@ export function proxy_on_request_headers(context_id: uint32_t, headers: uint32_t
 export function proxy_on_request_body(context_id: uint32_t, body_buffer_length: uint32_t, end_of_stream: uint32_t): FilterDataStatus { return 0; }
 export function proxy_on_request_trailers(context_id: uint32_t, trailers: uint32_t): FilterTrailersStatus { return 0; }
 export function proxy_on_request_metadata(context_id: uint32_t, nelements: uint32_t): FilterMetadataStatus { return 0; }
-export function proxy_on_response_headers(context_id: uint32_t, headers: uint32_t): FilterHeadersStatus { 
-  return getContext(context_id).onResponseHeaders(headers) as FilterHeadersStatus;
+export function proxy_on_response_headers(context_id: uint32_t, headers: uint32_t): FilterHeadersStatus {
+  let ctx = getContext(context_id);
+  return ctx.onResponseHeaders_(ctx, headers) as FilterHeadersStatus;
 }
 export function proxy_on_response_body(context_id: uint32_t, body_buffer_length: uint32_t, end_of_stream: uint32_t): FilterDataStatus { return 0; }
 export function proxy_on_response_trailers(context_id: uint32_t, trailers: uint32_t): FilterTrailersStatus { return 0; }
@@ -774,7 +775,7 @@ export function proxy_on_grpc_receive(context_id: uint32_t, token: uint32_t, res
 export function proxy_on_grpc_close(context_id: uint32_t, token: uint32_t, status_code: uint32_t): void { }
 
 // The stream/vm has completed.
-export function proxy_on_done(context_id: uint32_t): uint32_t { return 0; }
+
 // proxy_on_log occurs after proxy_on_done.
 export function proxy_on_log(context_id: uint32_t): void { }
 // The Context in the proxy has been destroyed and no further calls will be coming.
@@ -786,32 +787,38 @@ export function proxy_on_delete(context_id: uint32_t): void { }
 
 class AddHeaderRoot extends RootContext {
   constructor() {
-    super( "add_header", AddHeaderRoot_createContext);
+    super("add_header", AddHeaderRoot_createContext);
     log(LogLevelValues.warn, "AddHeaderRoot created");
 
   }
 }
 
-function AddHeaderRoot_createContext(context_id:u32):Context{
-  return new AddHeader();
+function AddHeaderRoot_createContext(context_id: u32): Context {
+  return ContextHelper.wrap(new AddHeader());
+}
+
+
+class ContextHelper<T extends Context> extends Context {
+  static wrap<T extends Context>(that: T): Context {
+    return new ContextHelper<T>(that);
+  }
+  that: T;
+  constructor(that: T) {
+    super();
+    // OOP HACK
+    this.onResponseHeaders_ = (thiz: Context, a: uint32_t) => { return (thiz as ContextHelper<T>).that.onResponseHeaders(a); }
+  }
+
 }
 
 class AddHeader extends Context {
-  constructor(){
-    super();
-    // OOP HACK
-    this.onResponseHeaders =  (a: uint32_t) => {
-      add_header_map_value_string(HeaderMapTypeValues.ResponseHeaders, "yuval", "kohavi");
-      return FilterHeadersStatusValues.Continue;
-    }
-  }
 
-  myonResponseHeaders(a: uint32_t): FilterHeadersStatusValues {
-    add_header_map_value_string(HeaderMapTypeValues.ResponseHeaders, "yuval", "kohavi");
+  onResponseHeaders(a: uint32_t): FilterHeadersStatusValues {
+    add_header_map_value_string(HeaderMapTypeValues.ResponseHeaders, "yuval", "kohavi2");
     return FilterHeadersStatusValues.Continue;
   }
 }
-function add_to_factory():RootContext {
+function add_to_factory(): RootContext {
   return new AddHeaderRoot();
 }
 root_factory.set("add_header", add_to_factory);
