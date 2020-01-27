@@ -614,14 +614,11 @@ export abstract class BaseContext {
 }
 
 export abstract class RootContext extends BaseContext {
-
-  readonly root_id: string;
   // hack to workaround lack of OOP
   createContext_: (thiz: RootContext, context_id: u32) => Context;
 
-  constructor(root_id: string) {
+  constructor() {
     super();
-    this.root_id = root_id;
     this.createContext_ =  (thiz: RootContext, context_id: u32) => { return thiz.createContext(context_id); };
   }
 
@@ -696,13 +693,13 @@ function ensureRootContext(root_context_id: u32): RootContext {
 
     root_context_map[root_context_id] = root_context;
 
-    log(LogLevelValues.warn, "returning context " + root_context.root_id);
+    log(LogLevelValues.warn, "returning context for "+root_id);
     return root_context;
   }
 
   log(LogLevelValues.warn, "did not find root id " + root_id)
 
-  let root_context = new RootContext("");
+  let root_context = new RootContext();
   root_context_map[root_context_id] = root_context;
   return root_context;
 
@@ -803,7 +800,7 @@ class RootContextHelper<T extends RootContext> extends RootContext {
   }
   that: T;
   constructor(that: T) {
-    super(that.root_id);
+    super();
     // OOP HACK
     this.createContext_ = (thiz: RootContext, context_id: u32) => { return (thiz as RootContextHelper<T>).that.createContext(context_id); };
   }
@@ -821,10 +818,14 @@ class ContextHelper<T extends Context> extends Context {
     this.onResponseHeaders_ = (thiz: Context, a: uint32_t) => { return (thiz as ContextHelper<T>).that.onResponseHeaders(a); }
   }
 }
+
+function registerRootContext<T extends RootContext> (name:string):void{
+  root_factory.set(name, () => {return RootContextHelper.wrap(new AddHeaderRoot());});
+}
 /////////////////////////////////////////////////////// code to test; move this to a separate module.
 class AddHeaderRoot extends RootContext {
   constructor() {
-    super("add_header");
+    super();
     log(LogLevelValues.warn, "AddHeaderRoot created");
 
   }
@@ -841,7 +842,4 @@ class AddHeader extends Context {
     return FilterHeadersStatusValues.Continue;
   }
 }
-function add_to_factory(): RootContext {
-  return RootContextHelper.wrap(new AddHeaderRoot());
-}
-root_factory.set("add_header", add_to_factory);
+registerRootContext<AddHeaderRoot>("add_header");
