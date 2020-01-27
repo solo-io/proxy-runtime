@@ -651,6 +651,7 @@ export abstract class BaseContext {
   // abstract createContext(context_id:u32):Context;
 }
 
+// we have to use a wrapper as asm script doesn't support closures just yet.
 class HttpCallback {
   ctx: Context;
   cb: (c: Context) => void;
