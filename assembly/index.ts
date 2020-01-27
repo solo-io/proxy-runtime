@@ -597,17 +597,17 @@ export function done(): WasmResult { return proxy_done(); }
 abstract class BaseContext {
   // abstract createContext(context_id:u32):Context;
 }
-type CreateCtxFunc = (context_id: u32) => Context;
+type CreateCtxFunc = (thiz: RootContext, context_id: u32) => Context;
 abstract class RootContext extends BaseContext {
 
   readonly root_id: string;
   // hack to workaround lack of OOP
-  readonly createContext: CreateCtxFunc;
+  createContext_: CreateCtxFunc;
 
-  constructor(root_id: string, createContext: CreateCtxFunc) {
+  constructor(root_id: string) {
     super();
     this.root_id = root_id;
-    this.createContext = createContext;
+    this.createContext_ =  (thiz: RootContext, context_id: u32) => { return thiz.createContext(context_id); };
   }
 
   // Can be used to validate the configuration (e.g. in the control plane). Returns false if the
@@ -622,11 +622,9 @@ abstract class RootContext extends BaseContext {
   onTick(): void { }
   onDone(): bool { return true; } // Called when the VM is being torn down.
   done(): void { } // Report that we are now done following returning false from onDone.
-}
-
-class EmptyRootContext extends RootContext {
-  constructor() {
-    super("", EmptyRootContext_createContext);
+  createContext(context_id: u32):Context {
+    log(LogLevelValues.critical, "base ctx: can't create context")
+    throw 123;
   }
 }
 
@@ -689,7 +687,7 @@ function ensureRootContext(root_context_id: u32): RootContext {
 
   log(LogLevelValues.warn, "did not find root id " + root_id)
 
-  let root_context = new EmptyRootContext();
+  let root_context = new RootContext("");
   root_context_map[root_context_id] = root_context;
   return root_context;
 
@@ -712,7 +710,7 @@ function ensureContext(context_id: u32, root_context_id: u32): Context {
   //  if (context_factory.has(root_context.root_id)) {
   // let factory = context_factory.get(root_context.root_id);
   // let context = factory(root_context);
-  let context = root_context.createContext(context_id);
+  let context = root_context.createContext_(root_context, context_id);
   context_map[context_id] = context;
   return context;
   //   } 
@@ -787,14 +785,31 @@ export function proxy_on_delete(context_id: uint32_t): void { }
 
 class AddHeaderRoot extends RootContext {
   constructor() {
-    super("add_header", AddHeaderRoot_createContext);
+    super("add_header");
     log(LogLevelValues.warn, "AddHeaderRoot created");
 
+  }
+
+  createContext(context_id: u32): Context {
+    return ContextHelper.wrap(new AddHeader());
   }
 }
 
 function AddHeaderRoot_createContext(context_id: u32): Context {
   return ContextHelper.wrap(new AddHeader());
+}
+
+
+class RootContextHelper<T extends RootContext> extends RootContext {
+  static wrap<T extends RootContext>(that: T): RootContext {
+    return new RootContextHelper<T>(that);
+  }
+  that: T;
+  constructor(that: T) {
+    super(that.root_id);
+    // OOP HACK
+    this.createContext_ = (thiz: RootContext, context_id: u32) => { return (thiz as RootContextHelper<T>).that.createContext(context_id); };
+  }
 }
 
 
@@ -819,6 +834,6 @@ class AddHeader extends Context {
   }
 }
 function add_to_factory(): RootContext {
-  return new AddHeaderRoot();
+  return RootContextHelper.wrap(new AddHeaderRoot());
 }
 root_factory.set("add_header", add_to_factory);
