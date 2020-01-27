@@ -627,8 +627,8 @@ export function get_buffer_status(typ: BufferTypeValues): BufferStatusResult{
   return resultTuple;
  }
 
+
 /*
-export function http_call(uri_ptr, uri_size, header_pairs_ptr, header_pairs_size, body_ptr, body_size, trailer_pairs_ptr, trailer_pairs_size, timeout_milliseconds, token_ptr) { return 0; },
 export function grpc_call(service_ptr, service_size, service_name_ptr, service_name_size, method_name_ptr, method_name_size, request_ptr, request_size, timeout_milliseconds, token_ptr) { return 0; },
 export function grpc_stream(service_ptr, service_size, service_name_ptr, service_name_size, method_name_ptr, method_name_size, token_ptr) { return 0; },
 export function grpc_cancel(token) { return 0; },
@@ -651,12 +651,24 @@ export abstract class BaseContext {
   // abstract createContext(context_id:u32):Context;
 }
 
+class HttpCallback {
+  ctx : Context;
+  cb : (c:Context)=>void;
+  constructor(ctx : Context, cb : (c:Context)=>void){
+    this.ctx = ctx;
+    this.cb = cb;
+  }
+}
+
 export abstract class RootContext extends BaseContext {
   // hack to workaround lack of OOP
   createContext_: (thiz: RootContext) => Context;
 
+  private http_calls_ : Map<u32, HttpCallback>;
+
   constructor() {
     super();
+    this.http_calls_ = new Map<u32, HttpCallback>();
     this.createContext_ =  (thiz: RootContext) => { return thiz.createContext(); };
   }
 
@@ -675,6 +687,20 @@ export abstract class RootContext extends BaseContext {
   createContext():Context {
     log(LogLevelValues.critical, "base ctx: can't create context")
     throw 123;
+  }
+
+  httpCall(uri :string, headers : Headers, body : ArrayBuffer, trailers : Headers, 
+    timeout_milliseconds : u32, ctx : Context, cb : (c:Context)=>void):WasmResultValues{
+      
+  let buffer = String.UTF8.encode(uri);
+  let header_pairs = serializeHeaders(headers);
+  let trailer_pairs = serializeHeaders(trailers);
+  let token = globalU32Ref;
+  let result = proxy_http_call(changetype<usize>(buffer), buffer.byteLength, changetype<usize>(header_pairs),header_pairs.byteLength, changetype<usize>(body),body.byteLength, changetype<usize>(trailer_pairs),trailer_pairs.byteLength, timeout_milliseconds, token.ptr());
+  if (result == WasmResultValues.Ok){
+    this.http_calls_[token.data] = new HttpCallback(ctx,cb);
+  }
+  return result;
   }
 }
 
