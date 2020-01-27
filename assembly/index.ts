@@ -508,8 +508,8 @@ function serializeHeaders(headers: Headers): ArrayBuffer {
 
 function deserializeHeaders(headers: ArrayBuffer): Headers {
   let numheaders = Uint32Array.wrap(headers, 0, 1)[0];
-  let sizes = Uint32Array.wrap(headers, sizeof<u32>(), 2*numheaders);
-  let data = headers.slice(sizeof<u32>()*(1+ 2*numheaders));
+  let sizes = Uint32Array.wrap(headers, sizeof<u32>(), 2 * numheaders);
+  let data = headers.slice(sizeof<u32>() * (1 + 2 * numheaders));
   let result = new Headers();
   let sizeIndex = 0;
   let dataIndex = 0;
@@ -517,12 +517,12 @@ function deserializeHeaders(headers: ArrayBuffer): Headers {
   for (let i = 0; i < numheaders; i++) {
     let keySize = sizes[sizeIndex];
     sizeIndex++;
-    let header_key_data = data.slice(dataIndex, dataIndex+keySize);
+    let header_key_data = data.slice(dataIndex, dataIndex + keySize);
     dataIndex += keySize + 1; // +1 for nil termination.
 
     let valueSize = sizes[sizeIndex];
     sizeIndex++;
-    let header_value_data = data.slice(dataIndex, dataIndex+valueSize);
+    let header_value_data = data.slice(dataIndex, dataIndex + valueSize);
     dataIndex += valueSize + 1; // +1 for nil termination.
 
     let pair = new HeaderPair();
@@ -608,24 +608,24 @@ export function get_buffer_bytes(typ: BufferTypeValues, start: u32, length: u32)
 
 // returning tuples is not supported.
 class BufferStatusResult {
-  result :WasmResultValues;
-  length:usize;
+  result: WasmResultValues;
+  length: usize;
   flags: u32;
 }
 
-export function get_buffer_status(typ: BufferTypeValues): BufferStatusResult{
+export function get_buffer_status(typ: BufferTypeValues): BufferStatusResult {
   let length_ptr = globalUsizeRef;
   let flags_ptr = globalU32Ref;
   let result = proxy_get_buffer_status(typ, length_ptr.ptr(), flags_ptr.ptr());
   let resultTuple = new BufferStatusResult();
   resultTuple.result = result;
-  if (result == WasmResultValues.Ok){
+  if (result == WasmResultValues.Ok) {
     resultTuple.length = length_ptr.data;
     resultTuple.flags = flags_ptr.data;
     return resultTuple;
   }
   return resultTuple;
- }
+}
 
 
 /*
@@ -652,9 +652,9 @@ export abstract class BaseContext {
 }
 
 class HttpCallback {
-  ctx : Context;
-  cb : (c:Context)=>void;
-  constructor(ctx : Context, cb : (c:Context)=>void){
+  ctx: Context;
+  cb: (c: Context) => void;
+  constructor(ctx: Context, cb: (c: Context) => void) {
     this.ctx = ctx;
     this.cb = cb;
   }
@@ -664,12 +664,12 @@ export abstract class RootContext extends BaseContext {
   // hack to workaround lack of OOP
   createContext_: (thiz: RootContext) => Context;
 
-  private http_calls_ : Map<u32, HttpCallback>;
+  private http_calls_: Map<u32, HttpCallback>;
 
   constructor() {
     super();
     this.http_calls_ = new Map<u32, HttpCallback>();
-    this.createContext_ =  (thiz: RootContext) => { return thiz.createContext(); };
+    this.createContext_ = (thiz: RootContext) => { return thiz.createContext(); };
   }
 
   // Can be used to validate the configuration (e.g. in the control plane). Returns false if the
@@ -684,26 +684,26 @@ export abstract class RootContext extends BaseContext {
   onTick(): void { }
   onDone(): bool { return true; } // Called when the VM is being torn down.
   done(): void { } // Report that we are now done following returning false from onDone.
-  createContext():Context {
+  createContext(): Context {
     log(LogLevelValues.critical, "base ctx: can't create context")
     throw 123;
   }
 
-  httpCall(uri :string, headers : Headers, body : ArrayBuffer, trailers : Headers, 
-    timeout_milliseconds : u32, ctx : Context, cb : (c:Context)=>void):WasmResultValues{
-      
-  let buffer = String.UTF8.encode(uri);
-  let header_pairs = serializeHeaders(headers);
-  let trailer_pairs = serializeHeaders(trailers);
-  let token = globalU32Ref;
-  let result = proxy_http_call(changetype<usize>(buffer), buffer.byteLength, changetype<usize>(header_pairs),header_pairs.byteLength, changetype<usize>(body),body.byteLength, changetype<usize>(trailer_pairs),trailer_pairs.byteLength, timeout_milliseconds, token.ptr());
-  if (result == WasmResultValues.Ok){
-    this.http_calls_[token.data] = new HttpCallback(ctx,cb);
+  httpCall(uri: string, headers: Headers, body: ArrayBuffer, trailers: Headers,
+    timeout_milliseconds: u32, ctx: Context, cb: (c: Context) => void): WasmResultValues {
+
+    let buffer = String.UTF8.encode(uri);
+    let header_pairs = serializeHeaders(headers);
+    let trailer_pairs = serializeHeaders(trailers);
+    let token = globalU32Ref;
+    let result = proxy_http_call(changetype<usize>(buffer), buffer.byteLength, changetype<usize>(header_pairs), header_pairs.byteLength, changetype<usize>(body), body.byteLength, changetype<usize>(trailer_pairs), trailer_pairs.byteLength, timeout_milliseconds, token.ptr());
+    if (result == WasmResultValues.Ok) {
+      this.http_calls_[token.data] = new HttpCallback(ctx, cb);
+    }
+    return result;
   }
-  return result;
-  }
-  onHttpCallResponse(token:u32, headers: uint32_t, body_size: uint32_t, trailers: uint32_t):void{
-    if (this.http_calls_.has(token) ) {
+  onHttpCallResponse(token: u32, headers: uint32_t, body_size: uint32_t, trailers: uint32_t): void {
+    if (this.http_calls_.has(token)) {
       let callback = this.http_calls_.get(token);
       this.http_calls_.delete(token);
       callback.cb(callback.ctx);
@@ -760,7 +760,7 @@ function ensureRootContext(root_context_id: u32): RootContext {
 
     root_context_map[root_context_id] = root_context;
 
-    log(LogLevelValues.warn, "returning context for "+root_id);
+    log(LogLevelValues.warn, "returning context for " + root_id);
     return root_context;
   }
 
@@ -888,8 +888,8 @@ class ContextHelper<T extends Context> extends Context {
   }
 }
 
-function registerRootContext<T extends RootContext> (name:string):void{
-  root_factory.set(name, () => {return RootContextHelper.wrap(new AddHeaderRoot());});
+function registerRootContext<T extends RootContext>(name: string): void {
+  root_factory.set(name, () => { return RootContextHelper.wrap(new AddHeaderRoot()); });
 }
 /////////////////////////////////////////////////////// code to test; move this to a separate module.
 class AddHeaderRoot extends RootContext {
