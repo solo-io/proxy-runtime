@@ -634,11 +634,48 @@ export function grpc_stream(service_ptr, service_size, service_name_ptr, service
 export function grpc_cancel(token) { return 0; },
 export function grpc_close(token) { return 0; },
 export function grpc_send(token, message_ptr, message_size, end_stream) { return 0; },
-export function define_metric(type, name_ptr, name_size, metric_id) { return 0; },
-export function increment_metric(metric_id, offset) { return 0; },
-export function record_metric(metric_id, value) { return 0; },
-export function get_metric(metric_id, result) { return 0; },
 */
+
+
+class MetricResult{
+  result: WasmResult;
+  metric_id : u32;
+}
+
+export function define_metric(typ:MetricTypeValues, name : string) : MetricResult {
+  let metricid = globalU32Ref;
+  let nameutf8 = String.UTF8.encode(name);
+  let res =  proxy_define_metric(typ, changetype<usize>(nameutf8), nameutf8.byteLength, metricid.ptr());
+  let result = new MetricResult();
+  result.result = res;
+  if (res == WasmResultValues.Ok) {
+    result.metric_id = metricid.data;
+  }
+  return result;
+}
+
+export function increment_metric(metric_id : u32, offset:i64) : WasmResultValues {
+  return proxy_increment_metric(metric_id, offset);
+}
+export function record_metric(metric_id : u32, value:u64): WasmResultValues {
+  return proxy_record_metric(metric_id, value);
+}
+
+class MetricData{
+  result: WasmResult;
+  data : u64;
+}
+
+export function get_metric(metric_id : u32): MetricData {
+  let metricid = globalU64Ref;
+  let res = proxy_record_metric(metric_id, metricid.ptr());
+  let result = new MetricData();
+  result.result = res;
+  if (res == WasmResultValues.Ok) {
+    result.data = metricid.data;
+  }
+  return result;
+}
 
 export function set_effective_context(effective_context_id: u32): WasmResult {
   return proxy_set_effective_context(effective_context_id);
