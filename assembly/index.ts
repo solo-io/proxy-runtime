@@ -913,18 +913,37 @@ export function proxy_on_context_create(context_id: uint32_t, root_context_id: u
 }
 
 export function proxy_on_request_headers(context_id: uint32_t, headers: uint32_t): FilterHeadersStatus {
-  return getContext(context_id).onRequestHeaders(headers) as FilterHeadersStatus;
+  let ctx = getContext(context_id);
+  return ctx.onRequestHeaders_(ctx, headers) as FilterHeadersStatus;
 }
-export function proxy_on_request_body(context_id: uint32_t, body_buffer_length: uint32_t, end_of_stream: uint32_t): FilterDataStatus { return 0; }
-export function proxy_on_request_trailers(context_id: uint32_t, trailers: uint32_t): FilterTrailersStatus { return 0; }
-export function proxy_on_request_metadata(context_id: uint32_t, nelements: uint32_t): FilterMetadataStatus { return 0; }
+export function proxy_on_request_body(context_id: uint32_t, body_buffer_length: uint32_t, end_of_stream: uint32_t): FilterDataStatus{ 
+  let ctx = getContext(context_id);
+  return ctx.onRequestBody_(ctx, body_buffer_length, end_of_stream != 0) as FilterDataStatus;
+}
+export function proxy_on_request_trailers(context_id: uint32_t, trailers: uint32_t): FilterTrailersStatus { 
+  let ctx = getContext(context_id);
+  return ctx.onRequestTrailers_(ctx, trailers) as FilterTrailersStatus;
+}
+export function proxy_on_request_metadata(context_id: uint32_t, nelements: uint32_t): FilterMetadataStatus { 
+  let ctx = getContext(context_id);
+  return ctx.onRequestMetadata_(ctx, nelements) as FilterMetadataStatus;
+}
 export function proxy_on_response_headers(context_id: uint32_t, headers: uint32_t): FilterHeadersStatus {
   let ctx = getContext(context_id);
   return ctx.onResponseHeaders_(ctx, headers) as FilterHeadersStatus;
 }
-export function proxy_on_response_body(context_id: uint32_t, body_buffer_length: uint32_t, end_of_stream: uint32_t): FilterDataStatus { return 0; }
-export function proxy_on_response_trailers(context_id: uint32_t, trailers: uint32_t): FilterTrailersStatus { return 0; }
-export function proxy_on_response_metadata(context_id: uint32_t, nelements: uint32_t): FilterMetadataStatus { return 0; }
+export function proxy_on_response_body(context_id: uint32_t, body_buffer_length: uint32_t, end_of_stream: uint32_t): FilterDataStatus {
+  let ctx = getContext(context_id);
+  return ctx.onResponseBody_(ctx, body_buffer_length, end_of_stream != 0) as FilterDataStatus;
+}
+export function proxy_on_response_trailers(context_id: uint32_t, trailers: uint32_t): FilterTrailersStatus {
+  let ctx = getContext(context_id);
+  return ctx.onResponseTrailers_(ctx, trailers) as FilterTrailersStatus;
+}
+export function proxy_on_response_metadata(context_id: uint32_t, nelements: uint32_t): FilterMetadataStatus {
+  let ctx = getContext(context_id);
+  return ctx.onResponseMetadata_(ctx, nelements) as FilterMetadataStatus;
+}
 
 // HTTP/gRPC.
 export function proxy_on_http_call_response(context_id: uint32_t, token: uint32_t, headers: uint32_t, body_size: uint32_t, trailers: uint32_t): void {
