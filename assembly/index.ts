@@ -637,42 +637,42 @@ export function grpc_send(token, message_ptr, message_size, end_stream) { return
 */
 
 
-class MetricResult{
+class MetricResult {
   result: WasmResult;
-  metric_id : u32;
+  metric_id: u32;
 }
 
-export function define_metric(typ:MetricTypeValues, name : string) : MetricResult {
-  let metricid = globalU32Ref;
+export function define_metric(typ: MetricTypeValues, name: string): MetricResult {
+  let metric_id = globalU32Ref;
   let nameutf8 = String.UTF8.encode(name);
-  let res =  proxy_define_metric(typ, changetype<usize>(nameutf8), nameutf8.byteLength, metricid.ptr());
+  let res = proxy_define_metric(typ, changetype<usize>(nameutf8), nameutf8.byteLength, metric_id.ptr());
   let result = new MetricResult();
   result.result = res;
   if (res == WasmResultValues.Ok) {
-    result.metric_id = metricid.data;
+    result.metric_id = metric_id.data;
   }
   return result;
 }
 
-export function increment_metric(metric_id : u32, offset:i64) : WasmResultValues {
+export function increment_metric(metric_id: u32, offset: i64): WasmResultValues {
   return proxy_increment_metric(metric_id, offset);
 }
-export function record_metric(metric_id : u32, value:u64): WasmResultValues {
+export function record_metric(metric_id: u32, value: u64): WasmResultValues {
   return proxy_record_metric(metric_id, value);
 }
 
-class MetricData{
+class MetricData {
   result: WasmResult;
-  data : u64;
+  data: u64;
 }
 
-export function get_metric(metric_id : u32): MetricData {
-  let metricid = globalU64Ref;
-  let res = proxy_record_metric(metric_id, metricid.ptr());
+export function get_metric(metric_id: u32): MetricData {
+  let metric_data = globalU64Ref;
+  let res = proxy_record_metric(metric_id, metric_data.ptr());
   let result = new MetricData();
   result.result = res;
   if (res == WasmResultValues.Ok) {
-    result.data = metricid.data;
+    result.data = metric_data.data;
   }
   return result;
 }
@@ -700,26 +700,26 @@ class HttpCallback {
 
 export abstract class RootContext extends BaseContext {
   // hack to workaround lack of OOP
-  validateConfiguration_: (thiz:RootContext, configuration_size: size_t) => bool;
-  onConfigure_: (thiz:RootContext, configuration_size: size_t) => bool;
-  onStart_: (thiz:RootContext, vm_configuration_size: size_t) => bool;
-  onTick_: (thiz:RootContext) => void;
-  onDone_: (thiz:RootContext) => bool;
-  done_: (thiz:RootContext) => void;
-  createContext_: (thiz:RootContext) => Context;
+  validateConfiguration_: (thiz: RootContext, configuration_size: size_t) => bool;
+  onConfigure_: (thiz: RootContext, configuration_size: size_t) => bool;
+  onStart_: (thiz: RootContext, vm_configuration_size: size_t) => bool;
+  onTick_: (thiz: RootContext) => void;
+  onDone_: (thiz: RootContext) => bool;
+  done_: (thiz: RootContext) => void;
+  createContext_: (thiz: RootContext) => Context;
 
   private http_calls_: Map<u32, HttpCallback>;
 
   constructor() {
     super();
     this.http_calls_ = new Map<u32, HttpCallback>();
-    this.validateConfiguration_ = (thiz:RootContext, configuration_size: size_t) => {return thiz.validateConfiguration(configuration_size);};
-    this.onConfigure_ = (thiz:RootContext, configuration_size: size_t) => {return thiz.onConfigure(configuration_size);};
-    this.onStart_ = (thiz:RootContext, vm_configuration_size: size_t) => {return thiz.onStart(vm_configuration_size);};
-    this.onTick_ = (thiz:RootContext) => {thiz.onTick();};
-    this.onDone_ = (thiz:RootContext) => {return thiz.onDone();};
-    this.done_ = (thiz:RootContext) => {thiz.done();};
-    this.createContext_ = (thiz:RootContext) => {return thiz.createContext();};
+    this.validateConfiguration_ = (thiz: RootContext, configuration_size: size_t) => { return thiz.validateConfiguration(configuration_size); };
+    this.onConfigure_ = (thiz: RootContext, configuration_size: size_t) => { return thiz.onConfigure(configuration_size); };
+    this.onStart_ = (thiz: RootContext, vm_configuration_size: size_t) => { return thiz.onStart(vm_configuration_size); };
+    this.onTick_ = (thiz: RootContext) => { thiz.onTick(); };
+    this.onDone_ = (thiz: RootContext) => { return thiz.onDone(); };
+    this.done_ = (thiz: RootContext) => { thiz.done(); };
+    this.createContext_ = (thiz: RootContext) => { return thiz.createContext(); };
   }
 
   // Can be used to validate the configuration (e.g. in the control plane). Returns false if the
@@ -765,40 +765,40 @@ class Context {
   readonly context_id: u32;
   readonly root_context: RootContext;
 
-  onNewConnection_ :(thiz: Context) => FilterStatusValues;
-  onDownstreamData_ :(thiz: Context,size: size_t, end: bool) => FilterStatusValues;
-  onUpstreamData_ :(thiz: Context,size: size_t, end: bool) => FilterStatusValues;
-  onDownstreamConnectionClose_ :(thiz: Context,t: PeerType) => void;
-  onUpstreamConnectionClose_ :(thiz: Context,t: PeerType) => void;
-  onRequestHeaders_ :(thiz: Context,a: uint32_t) => FilterHeadersStatusValues;
-  onRequestMetadata_ :(thiz: Context,a: uint32_t) => FilterMetadataStatusValues;
-  onRequestBody_ :(thiz: Context,body_buffer_length: size_t, end_of_stream: bool) => FilterDataStatusValues;
-  onRequestTrailers_ :(thiz: Context,a: uint32_t) => FilterTrailersStatusValues;
-  onResponseHeaders_ :(thiz: Context,a: uint32_t) => FilterHeadersStatusValues;
-  onResponseMetadata_ :(thiz: Context,a: uint32_t) => FilterMetadataStatusValues;
-  onResponseBody_ :(thiz: Context,body_buffer_length: size_t, end_of_stream: bool) => FilterDataStatusValues;
-  onResponseTrailers_ :(thiz: Context,s: uint32_t) => FilterTrailersStatusValues;
-  onDone_ :(thiz: Context) => void;
-  onLog_ :(thiz: Context) => void;
+  onNewConnection_: (thiz: Context) => FilterStatusValues;
+  onDownstreamData_: (thiz: Context, size: size_t, end: bool) => FilterStatusValues;
+  onUpstreamData_: (thiz: Context, size: size_t, end: bool) => FilterStatusValues;
+  onDownstreamConnectionClose_: (thiz: Context, t: PeerType) => void;
+  onUpstreamConnectionClose_: (thiz: Context, t: PeerType) => void;
+  onRequestHeaders_: (thiz: Context, a: uint32_t) => FilterHeadersStatusValues;
+  onRequestMetadata_: (thiz: Context, a: uint32_t) => FilterMetadataStatusValues;
+  onRequestBody_: (thiz: Context, body_buffer_length: size_t, end_of_stream: bool) => FilterDataStatusValues;
+  onRequestTrailers_: (thiz: Context, a: uint32_t) => FilterTrailersStatusValues;
+  onResponseHeaders_: (thiz: Context, a: uint32_t) => FilterHeadersStatusValues;
+  onResponseMetadata_: (thiz: Context, a: uint32_t) => FilterMetadataStatusValues;
+  onResponseBody_: (thiz: Context, body_buffer_length: size_t, end_of_stream: bool) => FilterDataStatusValues;
+  onResponseTrailers_: (thiz: Context, s: uint32_t) => FilterTrailersStatusValues;
+  onDone_: (thiz: Context) => void;
+  onLog_: (thiz: Context) => void;
 
 
 
   constructor() {
-    this.onNewConnection_ = (thiz: Context) => { return thiz.onNewConnection();}
-    this.onDownstreamData_ = (thiz: Context,size: size_t, end: bool) => { return thiz.onDownstreamData(size, end);}
-    this.onUpstreamData_ = (thiz: Context,size: size_t, end: bool) => { return thiz.onUpstreamData(size, end);}
-    this.onDownstreamConnectionClose_ = (thiz: Context,t: PeerType) => { thiz.onDownstreamConnectionClose(t);}
-    this.onUpstreamConnectionClose_ = (thiz: Context,t: PeerType) => { thiz.onUpstreamConnectionClose(t);}
-    this.onRequestHeaders_ = (thiz: Context,a: uint32_t) => { return thiz.onRequestHeaders(a);}
-    this.onRequestMetadata_ = (thiz: Context,a: uint32_t) => { return thiz.onRequestMetadata(a);}
-    this.onRequestBody_ = (thiz: Context,body_buffer_length: size_t, end_of_stream: bool) => { return thiz.onRequestBody(body_buffer_length, end_of_stream);}
-    this.onRequestTrailers_ = (thiz: Context,a: uint32_t) => { return thiz.onRequestTrailers(a);}
-    this.onResponseHeaders_ = (thiz: Context,a: uint32_t) => { return thiz.onResponseHeaders(a);}
-    this.onResponseMetadata_ = (thiz: Context,a: uint32_t) => { return thiz.onResponseMetadata(a);}
-    this.onResponseBody_ = (thiz: Context,body_buffer_length: size_t, end_of_stream: bool) => { return thiz.onResponseBody(body_buffer_length, end_of_stream);}
-    this.onResponseTrailers_ = (thiz: Context,s: uint32_t) => { return thiz.onResponseTrailers(s);}
-    this.onDone_ = (thiz: Context) => { thiz.onDone();}
-    this.onLog_ = (thiz: Context) => { thiz.onLog();}
+    this.onNewConnection_ = (thiz: Context) => { return thiz.onNewConnection(); }
+    this.onDownstreamData_ = (thiz: Context, size: size_t, end: bool) => { return thiz.onDownstreamData(size, end); }
+    this.onUpstreamData_ = (thiz: Context, size: size_t, end: bool) => { return thiz.onUpstreamData(size, end); }
+    this.onDownstreamConnectionClose_ = (thiz: Context, t: PeerType) => { thiz.onDownstreamConnectionClose(t); }
+    this.onUpstreamConnectionClose_ = (thiz: Context, t: PeerType) => { thiz.onUpstreamConnectionClose(t); }
+    this.onRequestHeaders_ = (thiz: Context, a: uint32_t) => { return thiz.onRequestHeaders(a); }
+    this.onRequestMetadata_ = (thiz: Context, a: uint32_t) => { return thiz.onRequestMetadata(a); }
+    this.onRequestBody_ = (thiz: Context, body_buffer_length: size_t, end_of_stream: bool) => { return thiz.onRequestBody(body_buffer_length, end_of_stream); }
+    this.onRequestTrailers_ = (thiz: Context, a: uint32_t) => { return thiz.onRequestTrailers(a); }
+    this.onResponseHeaders_ = (thiz: Context, a: uint32_t) => { return thiz.onResponseHeaders(a); }
+    this.onResponseMetadata_ = (thiz: Context, a: uint32_t) => { return thiz.onResponseMetadata(a); }
+    this.onResponseBody_ = (thiz: Context, body_buffer_length: size_t, end_of_stream: bool) => { return thiz.onResponseBody(body_buffer_length, end_of_stream); }
+    this.onResponseTrailers_ = (thiz: Context, s: uint32_t) => { return thiz.onResponseTrailers(s); }
+    this.onDone_ = (thiz: Context) => { thiz.onDone(); }
+    this.onLog_ = (thiz: Context) => { thiz.onLog(); }
   }
 
   onNewConnection(): FilterStatusValues { return FilterStatusValues.Continue; }
@@ -916,15 +916,15 @@ export function proxy_on_request_headers(context_id: uint32_t, headers: uint32_t
   let ctx = getContext(context_id);
   return ctx.onRequestHeaders_(ctx, headers) as FilterHeadersStatus;
 }
-export function proxy_on_request_body(context_id: uint32_t, body_buffer_length: uint32_t, end_of_stream: uint32_t): FilterDataStatus{ 
+export function proxy_on_request_body(context_id: uint32_t, body_buffer_length: uint32_t, end_of_stream: uint32_t): FilterDataStatus {
   let ctx = getContext(context_id);
   return ctx.onRequestBody_(ctx, body_buffer_length, end_of_stream != 0) as FilterDataStatus;
 }
-export function proxy_on_request_trailers(context_id: uint32_t, trailers: uint32_t): FilterTrailersStatus { 
+export function proxy_on_request_trailers(context_id: uint32_t, trailers: uint32_t): FilterTrailersStatus {
   let ctx = getContext(context_id);
   return ctx.onRequestTrailers_(ctx, trailers) as FilterTrailersStatus;
 }
-export function proxy_on_request_metadata(context_id: uint32_t, nelements: uint32_t): FilterMetadataStatus { 
+export function proxy_on_request_metadata(context_id: uint32_t, nelements: uint32_t): FilterMetadataStatus {
   let ctx = getContext(context_id);
   return ctx.onRequestMetadata_(ctx, nelements) as FilterMetadataStatus;
 }
