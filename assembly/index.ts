@@ -31,7 +31,7 @@ class AddHeaderRoot extends RootContext {
 class AddHeader extends Context {
 
   onResponseHeaders(a: u32): FilterHeadersStatusValues {
-    add_header_map_value_string(HeaderMapTypeValues.ResponseHeaders, "yuval", "kohavi2");
+    add_header_map_value_string(HeaderMapTypeValues.ResponseHeaders, "yuval", "kohavi");
     return FilterHeadersStatusValues.Continue;
   }
 }

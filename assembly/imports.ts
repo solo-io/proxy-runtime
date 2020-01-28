@@ -11,7 +11,11 @@ type GrpcStatus = i32;
 
 // Calls in.
 export function proxy_on_vm_start(root_context_id: u32, configuration_size: u32): u32 {
-    return getRootContext(root_context_id).onStart(configuration_size) ? 1 : 0;
+  return getRootContext(root_context_id).onStart(configuration_size) ? 1 : 0;
+}
+export function proxy_on_start(root_context_id: u32, vm_configuration_size: u32): u32 {
+    ensureRootContext(root_context_id);
+    return getRootContext(root_context_id).onStart(vm_configuration_size) ? 1 : 0;
   }
   export function proxy_validate_configuration(root_context_id: u32, configuration_size: u32): u32 {
     return getRootContext(root_context_id).validateConfiguration(configuration_size) ? 1 : 0;
@@ -31,6 +35,10 @@ export function proxy_on_vm_start(root_context_id: u32, configuration_size: u32)
     } else {
       ensureRootContext(context_id);
     }
+  }
+
+  export function proxy_on_create(context_id: u32, root_context_id: u32): void {
+    proxy_on_context_create(context_id, root_context_id);
   }
   
   export function proxy_on_request_headers(context_id: u32, headers: u32): FilterHeadersStatus {
