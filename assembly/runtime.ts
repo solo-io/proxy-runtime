@@ -365,9 +365,11 @@ function get_header_map_flat_pairs(typ: HeaderMapTypeValues): ArrayBuffer {
   return new ArrayBuffer(0);
 }
 export function get_header_map_pairs(typ: HeaderMapTypeValues): Headers { throw new Error('un impl yet'); }
-export function set_header_map_flat_pairs(typ: HeaderMapTypeValues, flat_headers: ArrayBuffer): void {
+
+function set_header_map_flat_pairs(typ: HeaderMapTypeValues, flat_headers: ArrayBuffer): void {
   CHECK_RESULT(imports.proxy_set_header_map_pairs(typ, changetype<usize>(flat_headers), flat_headers.byteLength));
 }
+
 export function set_header_map_pairs(typ: HeaderMapTypeValues, headers: Headers): void {
   let flat_headers = serializeHeaders(headers);
   set_header_map_flat_pairs(typ, flat_headers);
@@ -379,9 +381,9 @@ export function remove_header_map_value(typ: HeaderMapTypeValues, key: ArrayBuff
   CHECK_RESULT(imports.proxy_remove_header_map_value(typ, changetype<usize>(key), key.byteLength));
 }
 export function get_header_map_size(typ: HeaderMapTypeValues): usize {
-  let status = globalUsizeRef;
-  CHECK_RESULT(imports.proxy_get_header_map_size(typ, status.ptr()));
-  return status.data;
+  let size = globalUsizeRef;
+  CHECK_RESULT(imports.proxy_get_header_map_size(typ, size.ptr()));
+  return size.data;
 }
 // unclear if start and length are 64 or 32
 export function get_buffer_bytes(typ: BufferTypeValues, start: u32, length: u32): ArrayBuffer {
@@ -414,16 +416,6 @@ export function get_buffer_status(typ: BufferTypeValues): BufferStatusResult {
   }
   return resultTuple;
 }
-
-
-/*
-export function grpc_call(service_ptr, service_size, service_name_ptr, service_name_size, method_name_ptr, method_name_size, request_ptr, request_size, timeout_milliseconds, token_ptr) { return 0; },
-export function grpc_stream(service_ptr, service_size, service_name_ptr, service_name_size, method_name_ptr, method_name_size, token_ptr) { return 0; },
-export function grpc_cancel(token) { return 0; },
-export function grpc_close(token) { return 0; },
-export function grpc_send(token, message_ptr, message_size, end_stream) { return 0; },
-*/
-
 
 class MetricResult {
   result: WasmResultValues;
@@ -478,9 +470,18 @@ export abstract class BaseContext {
 
 // we have to use a wrapper as asm script doesn't support closures just yet.
 class HttpCallback {
-  ctx: Context;
-  cb: (c: Context) => void;
-  constructor(ctx: Context, cb: (c: Context) => void) {
+  ctx: Object;
+  cb: (c: Object) => void;
+  call():void{ this.cb(this.ctx);}
+  constructor(ctx: Object, cb: (c: Context) => void) {
+    this.ctx = ctx;
+    this.cb = cb;
+  }
+}
+class GrpcCallback {
+  ctx: Object;
+  cb: (c: Object) => void;
+  constructor(ctx: Object, cb: (c: Context) => void) {
     this.ctx = ctx;
     this.cb = cb;
   }
@@ -497,10 +498,12 @@ export class RootContext extends BaseContext {
   createContext_: (thiz: RootContext) => Context;
 
   private http_calls_: Map<u32, HttpCallback>;
-
+  private grpc_calls_: Map<u32, GrpcCallback>;
+  
   constructor() {
     super();
-    this.http_calls_ = new Map<u32, HttpCallback>();
+    this.http_calls_ = new Map();
+    this.grpc_calls_ = new Map();
     this.validateConfiguration_ = (thiz: RootContext, configuration_size: size_t) => { return thiz.validateConfiguration(configuration_size); };
     this.onConfigure_ = (thiz: RootContext, configuration_size: size_t) => { return thiz.onConfigure(configuration_size); };
     this.onStart_ = (thiz: RootContext, vm_configuration_size: size_t) => { return thiz.onStart(vm_configuration_size); };
@@ -508,6 +511,16 @@ export class RootContext extends BaseContext {
     this.onDone_ = (thiz: RootContext) => { return thiz.onDone(); };
     this.done_ = (thiz: RootContext) => { thiz.done(); };
     this.createContext_ = (thiz: RootContext) => { return thiz.createContext(); };
+  }
+
+  cancelPendingRequests():void{
+    let keys = this.http_calls_.keys();
+    for (let i = 0; i < keys.length; ++i) {
+      let key = keys[i];
+      // TODO cancel pending http requests and call callbacks with failure.?
+      // when it becomes possible in envoy.
+    }
+    this.http_calls_.clear()
   }
 
   // Can be used to validate the configuration (e.g. in the control plane). Returns false if the
@@ -528,7 +541,7 @@ export class RootContext extends BaseContext {
   }
 
   httpCall(uri: string, headers: Headers, body: ArrayBuffer, trailers: Headers,
-    timeout_milliseconds: u32, ctx: Context, cb: (c: Context) => void): WasmResultValues {
+    timeout_milliseconds: u32, cb : HttpCallback): WasmResultValues {
 
     let buffer = String.UTF8.encode(uri);
     let header_pairs = serializeHeaders(headers);
@@ -536,7 +549,7 @@ export class RootContext extends BaseContext {
     let token = globalU32Ref;
     let result = imports.proxy_http_call(changetype<usize>(buffer), buffer.byteLength, changetype<usize>(header_pairs), header_pairs.byteLength, changetype<usize>(body), body.byteLength, changetype<usize>(trailer_pairs), trailer_pairs.byteLength, timeout_milliseconds, token.ptr());
     if (result == WasmResultValues.Ok) {
-      this.http_calls_.set(token.data, new HttpCallback(ctx, cb));
+      this.http_calls_.set(token.data, cb);
     }
     return result;
   }
@@ -544,9 +557,34 @@ export class RootContext extends BaseContext {
     if (this.http_calls_.has(token)) {
       let callback = this.http_calls_.get(token);
       this.http_calls_.delete(token);
-      callback.cb(callback.ctx);
+      callback.call();
     }
   }
+  on_grpc_create_initial_metadata(token: u32, headers: u32): void { }
+  on_grpc_receive_initial_metadata(token: u32, headers: u32): void { }
+  on_grpc_trailing_metadata(token: u32, trailers: u32): void { }
+  on_grpc_receive(token: u32, response_size: u32): void { }
+  on_grpc_close(token: u32, status_code: u32): void { }
+  
+  /*
+  grpc_call(service_proto:ArrayBuffer, service_name:string, method_name:string, request :ArrayBuffer, timeout_milliseconds : u32): WasmResultValues { 
+    let service_name_buffer = String.UTF8.encode(service_name);
+    let method_name_buffer = String.UTF8.encode(method_name);
+    let token = globalU32Ref;
+    let result = imports.proxy_grpc_call(changetype<usize>(service_proto), service_proto.byteLength,
+    changetype<usize>(service_name_buffer), service_name_buffer.byteLength, 
+    changetype<usize>(method_name_buffer), method_name_buffer.byteLength, 
+    changetype<usize>(request), request.byteLength, timeout_milliseconds, token.ptr());
+    if (result == WasmResultValues.Ok) {
+    this.grpc_calls_.set(token.data, new GrpcCallback(ctx, cb));
+    }
+    return result;
+  }
+
+  grpc_stream(service_ptr, service_size, service_name_ptr, service_name_size, method_name_ptr, method_name_size, token_ptr) { return 0; },
+  // {proxy_grpc_cancel as grpc_cancel,proxy_grpc_close as grpc_close,proxy_grpc_send as grpc_send} from "./imports";
+*/
+
 }
 
 export class Context {
