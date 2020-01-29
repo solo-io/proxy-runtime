@@ -486,7 +486,7 @@ class HttpCallback {
   }
 }
 
-export abstract class RootContext extends BaseContext {
+export class RootContext extends BaseContext {
   // hack to workaround lack of OOP
   validateConfiguration_: (thiz: RootContext, configuration_size: size_t) => bool;
   onConfigure_: (thiz: RootContext, configuration_size: size_t) => bool;
@@ -536,7 +536,7 @@ export abstract class RootContext extends BaseContext {
     let token = globalU32Ref;
     let result = imports.proxy_http_call(changetype<usize>(buffer), buffer.byteLength, changetype<usize>(header_pairs), header_pairs.byteLength, changetype<usize>(body), body.byteLength, changetype<usize>(trailer_pairs), trailer_pairs.byteLength, timeout_milliseconds, token.ptr());
     if (result == WasmResultValues.Ok) {
-      this.http_calls_[token.data] = new HttpCallback(ctx, cb);
+      this.http_calls_.set(token.data, new HttpCallback(ctx, cb));
     }
     return result;
   }
@@ -619,13 +619,13 @@ function get_plugin_root_id(): string {
 let root_context_map = new Map<u32, RootContext>();
 export function ensureRootContext(root_context_id: u32): RootContext {
   if (root_context_map.has(root_context_id)) {
-    return root_context_map[root_context_id];
+    return root_context_map.get(root_context_id);
   }
   let root_id = get_plugin_root_id();
   if (root_factory.has(root_id)) {
     let root_context_func = root_factory.get(root_id);
     let root_context = root_context_func();
-    root_context_map[root_context_id] = root_context;
+    root_context_map.set(root_context_id, root_context);
 
     log(LogLevelValues.warn, "returning context for " + root_id);
     return root_context;
@@ -634,7 +634,7 @@ export function ensureRootContext(root_context_id: u32): RootContext {
   log(LogLevelValues.warn, "did not find root id " + root_id)
 
   let root_context = new RootContext();
-  root_context_map[root_context_id] = root_context;
+  root_context_map.set(root_context_id, root_context);
   return root_context;
 }
 
@@ -642,31 +642,20 @@ let root_factory = new Map<string, () => RootContext>();
 let context_map = new Map<u32, Context>();
 
 export function getContext(context_id: u32): Context {
-  return context_map[context_id];
+  return context_map.get(context_id);
 }
 export function getRootContext(context_id: u32): RootContext {
-  return root_context_map[context_id];
+  return root_context_map.get(context_id);
 }
 
 export function ensureContext(context_id: u32, root_context_id: u32): Context {
   if (context_map.has(context_id)) {
-    return context_map[context_id];
+    return context_map.get(context_id);
   }
-  let root_context = root_context_map[root_context_id];
-
-  //  if (context_factory.has(root_context.root_id)) {
-  // let factory = context_factory.get(root_context.root_id);
-  // let context = factory(root_context);
+  let root_context = root_context_map.get(root_context_id);
   let context = root_context.createContext_(root_context);
-  context_map[context_id] = context;
+  context_map.set(context_id, context);
   return context;
-  //   } 
-
-  log(LogLevelValues.warn, "ensureContext: did not find root id " + root_context.root_id)
-  //  let context = new Context();
-  //  context_map[context_id] = context;
-  //  return context;
-  //return new RootContext();
 }
 
 let context_factory = new Map<string, (r: RootContext) => Context>();
