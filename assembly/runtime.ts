@@ -298,7 +298,7 @@ function deserializeHeaders(headers: ArrayBuffer): Headers {
   let numheaders = Uint32Array.wrap(headers, 0, 1)[0];
   let sizes = Uint32Array.wrap(headers, sizeof<u32>(), 2 * numheaders);
   let data = headers.slice(sizeof<u32>() * (1 + 2 * numheaders));
-  let result = new Headers();
+  let result : Headers = [];
   let sizeIndex = 0;
   let dataIndex = 0;
   // for in loop doesn't seem to be supported..
@@ -316,7 +316,7 @@ function deserializeHeaders(headers: ArrayBuffer): Headers {
     let pair = new HeaderPair();
     pair.key = header_key_data;
     pair.value = header_value_data;
-    result.append(pair);
+    result.push(pair);
   }
 
   return result;
