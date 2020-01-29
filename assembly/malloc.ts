@@ -5,13 +5,12 @@ import {
 
 /// Allow host to allocate memory.
 export function malloc(size: usize): usize {
-    let buffer = new ArrayBuffer(size);
-    let ptr = changetype<usize>(buffer);
-    return __retain(ptr);
-  }
-  
-  /// Allow host to free memory.
-  export function free(ptr: usize): void {
-    __release(ptr);
-  }
-  
+  let buffer = new ArrayBuffer(size);
+  let ptr = changetype<usize>(buffer);
+  return __retain(ptr);
+}
+
+/// Allow host to free memory.
+export function free(ptr: usize): void {
+  __release(ptr);
+}
