@@ -1,3 +1,7 @@
+import {
+  __retain,
+  __release,
+} from "rt/index-full";
 
 /// Allow host to allocate memory.
 export function malloc(size: usize): usize {

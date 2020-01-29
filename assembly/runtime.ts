@@ -1,5 +1,5 @@
 // import {LogLevel, WasmResult, MetricType, PeerType, HeaderMapType, BufferType, BufferFlags} from "./exports";
-import * as exports from "./exports";
+import * as imports from "./imports";
 import {free} from "./malloc";
 
 import {
@@ -28,7 +28,7 @@ export function abort_proc_exit(
 }
 type size_t = usize;
 
-function CHECK_RESULT(c: exports.WasmResult): void {
+function CHECK_RESULT(c: imports.WasmResult): void {
     if (c != WasmResultValues.Ok) {
       log(LogLevelValues.critical, c.toString());
       throw new Error(":(");
@@ -193,12 +193,12 @@ export function log(level: LogLevelValues, logMessage: string): void {
     // from the docs:
     // Like JavaScript, AssemblyScript stores strings in UTF-16 encoding represented by the API as UCS-2, 
     let buffer = String.UTF8.encode(logMessage);
-    exports.proxy_log(level as exports.LogLevel, changetype<usize>(buffer), buffer.byteLength);
+    imports.proxy_log(level as imports.LogLevel, changetype<usize>(buffer), buffer.byteLength);
   }
   
   // temporarily exported the function for testing
   export function get_configuration(): ArrayBuffer {
-    CHECK_RESULT(exports.proxy_get_configuration(globalArrayBufferReference.bufferPtr(), globalArrayBufferReference.sizePtr()));
+    CHECK_RESULT(imports.proxy_get_configuration(globalArrayBufferReference.bufferPtr(), globalArrayBufferReference.sizePtr()));
     let array = globalArrayBufferReference.toArrayBuffer();
   
     log(LogLevelValues.debug, String.UTF8.decode(array));
@@ -212,31 +212,31 @@ export function log(level: LogLevelValues, logMessage: string): void {
   
   export function get_status(): StatusWithData {
     let status = globalU32Ref;
-    CHECK_RESULT(exports.proxy_get_status(status.ptr(), globalArrayBufferReference.bufferPtr(), globalArrayBufferReference.sizePtr()));
+    CHECK_RESULT(imports.proxy_get_status(status.ptr(), globalArrayBufferReference.bufferPtr(), globalArrayBufferReference.sizePtr()));
     return { status: status.data, data: globalArrayBufferReference.toArrayBuffer() };
   }
   
   export function set_tick_period_milliseconds(millisecond: u32): void {
-    CHECK_RESULT(exports.proxy_set_tick_period_milliseconds(millisecond));
+    CHECK_RESULT(imports.proxy_set_tick_period_milliseconds(millisecond));
   }
   
   export function get_current_time_nanoseconds(): u64 {
     // TODO: use global var?
     let nanos = globalU64Ref;
-    CHECK_RESULT(exports.proxy_get_current_time_nanoseconds(nanos.ptr()));
+    CHECK_RESULT(imports.proxy_get_current_time_nanoseconds(nanos.ptr()));
     return nanos.data;
   }
   
   export function get_property(path: string): ArrayBuffer {
     let buffer = String.UTF8.encode(path);
   
-    CHECK_RESULT(exports.proxy_get_property(changetype<usize>(buffer), buffer.byteLength, globalArrayBufferReference.bufferPtr(), globalArrayBufferReference.sizePtr()));
+    CHECK_RESULT(imports.proxy_get_property(changetype<usize>(buffer), buffer.byteLength, globalArrayBufferReference.bufferPtr(), globalArrayBufferReference.sizePtr()));
     return globalArrayBufferReference.toArrayBuffer();
   }
   
   export function set_property(path: string, data: ArrayBuffer): WasmResultValues {
     let buffer = String.UTF8.encode(path);
-    return exports.proxy_set_property(changetype<usize>(buffer), buffer.byteLength, changetype<usize>(data), data.byteLength);
+    return imports.proxy_set_property(changetype<usize>(buffer), buffer.byteLength, changetype<usize>(data), data.byteLength);
   }
   
   function pairsSize(headers: Headers): usize {
@@ -322,18 +322,18 @@ export function log(level: LogLevelValues, logMessage: string): void {
     return result;
   }
   
-  export function continue_request(): WasmResultValues { return exports.proxy_continue_request(); }
-  export function continue_response(): WasmResultValues { return exports.proxy_continue_response(); }
+  export function continue_request(): WasmResultValues { return imports.proxy_continue_request(); }
+  export function continue_response(): WasmResultValues { return imports.proxy_continue_response(); }
   export function send_local_response(response_code: u32, response_code_details: string, body: ArrayBuffer,
     additional_headers: Headers, grpc_status: GrpcStatusValues): WasmResultValues {
     let response_code_details_buffer = String.UTF8.encode(response_code_details);
     let headers = serializeHeaders(additional_headers);
-    return exports.proxy_send_local_response(response_code, changetype<usize>(response_code_details_buffer), response_code_details_buffer.byteLength,
+    return imports.proxy_send_local_response(response_code, changetype<usize>(response_code_details_buffer), response_code_details_buffer.byteLength,
       changetype<usize>(body), body.byteLength, changetype<usize>(headers), headers.byteLength, grpc_status);
   }
   
   
-  export function clear_route_cache(): WasmResultValues { return exports.proxy_clear_route_cache(); }
+  export function clear_route_cache(): WasmResultValues { return imports.proxy_clear_route_cache(); }
   /*
   export function get_shared_data(key_ptr, key_size, value_ptr, value_size, cas) { return 0; },
   export function set_shared_data(key_ptr, key_size, value_ptr, value_size, cas) { return 0; },
@@ -343,22 +343,22 @@ export function log(level: LogLevelValues, logMessage: string): void {
   export function enqueue_shared_queue(token, data_ptr, data_size) { return 0; },
   */
   export function add_header_map_value(typ: HeaderMapTypeValues, key: ArrayBuffer, value: ArrayBuffer): WasmResultValues {
-    return exports.proxy_add_header_map_value(typ, changetype<usize>(key), key.byteLength, changetype<usize>(value), value.byteLength);
+    return imports.proxy_add_header_map_value(typ, changetype<usize>(key), key.byteLength, changetype<usize>(value), value.byteLength);
   }
   export function add_header_map_value_string(typ: HeaderMapTypeValues, key: string, value: string): WasmResultValues {
     let key_arr = String.UTF8.encode(key);
     let value_arr = String.UTF8.encode(value);
-    return exports.proxy_add_header_map_value(typ, changetype<usize>(key_arr), key_arr.byteLength, changetype<usize>(value_arr), value_arr.byteLength);
+    return imports.proxy_add_header_map_value(typ, changetype<usize>(key_arr), key_arr.byteLength, changetype<usize>(value_arr), value_arr.byteLength);
   }
   export function get_header_map_value(typ: HeaderMapTypeValues, key: ArrayBuffer): ArrayBuffer {
-    let result = exports.proxy_get_header_map_value(typ, changetype<usize>(key), key.byteLength, globalArrayBufferReference.bufferPtr(), globalArrayBufferReference.sizePtr());
+    let result = imports.proxy_get_header_map_value(typ, changetype<usize>(key), key.byteLength, globalArrayBufferReference.bufferPtr(), globalArrayBufferReference.sizePtr());
     if (result == WasmResultValues.Ok) {
       return globalArrayBufferReference.toArrayBuffer()
     }
     return new ArrayBuffer(0);
   }
   function get_header_map_flat_pairs(typ: HeaderMapTypeValues): ArrayBuffer {
-    let result = exports.proxy_get_header_map_pairs(typ, globalArrayBufferReference.bufferPtr(), globalArrayBufferReference.sizePtr());
+    let result = imports.proxy_get_header_map_pairs(typ, globalArrayBufferReference.bufferPtr(), globalArrayBufferReference.sizePtr());
     if (result == WasmResultValues.Ok) {
       return globalArrayBufferReference.toArrayBuffer()
     }
@@ -366,26 +366,26 @@ export function log(level: LogLevelValues, logMessage: string): void {
   }
   export function get_header_map_pairs(typ: HeaderMapTypeValues): Headers { throw new Error('un impl yet'); }
   export function set_header_map_flat_pairs(typ: HeaderMapTypeValues, flat_headers: ArrayBuffer): void {
-    CHECK_RESULT(exports.proxy_set_header_map_pairs(typ, changetype<usize>(flat_headers), flat_headers.byteLength));
+    CHECK_RESULT(imports.proxy_set_header_map_pairs(typ, changetype<usize>(flat_headers), flat_headers.byteLength));
   }
   export function set_header_map_pairs(typ: HeaderMapTypeValues, headers: Headers): void {
     let flat_headers = serializeHeaders(headers);
     set_header_map_flat_pairs(typ, flat_headers);
   }
   export function replace_header_map_value(typ: HeaderMapTypeValues, key: ArrayBuffer, value: ArrayBuffer): void {
-    CHECK_RESULT(exports.proxy_replace_header_map_value(typ, changetype<usize>(key), key.byteLength, changetype<usize>(value), value.byteLength));
+    CHECK_RESULT(imports.proxy_replace_header_map_value(typ, changetype<usize>(key), key.byteLength, changetype<usize>(value), value.byteLength));
   }
   export function remove_header_map_value(typ: HeaderMapTypeValues, key: ArrayBuffer): void {
-    CHECK_RESULT(exports.proxy_remove_header_map_value(typ, changetype<usize>(key), key.byteLength));
+    CHECK_RESULT(imports.proxy_remove_header_map_value(typ, changetype<usize>(key), key.byteLength));
   }
   export function get_header_map_size(typ: HeaderMapTypeValues): usize {
     let status = globalUsizeRef;
-    CHECK_RESULT(exports.proxy_get_header_map_size(typ, status.ptr()));
+    CHECK_RESULT(imports.proxy_get_header_map_size(typ, status.ptr()));
     return status.data;
   }
   // unclear if start and length are 64 or 32
   export function get_buffer_bytes(typ: BufferTypeValues, start: u32, length: u32): ArrayBuffer {
-    let result = exports.proxy_get_buffer_bytes(typ, start, length, globalArrayBufferReference.bufferPtr(), globalArrayBufferReference.sizePtr());
+    let result = imports.proxy_get_buffer_bytes(typ, start, length, globalArrayBufferReference.bufferPtr(), globalArrayBufferReference.sizePtr());
     // TODO: return the result as well. not sure what the best way to do this as it doesn't seem that
     // assembly scripts supports tuples.
     if (result == WasmResultValues.Ok) {
@@ -404,7 +404,7 @@ export function log(level: LogLevelValues, logMessage: string): void {
   export function get_buffer_status(typ: BufferTypeValues): BufferStatusResult {
     let length_ptr = globalUsizeRef;
     let flags_ptr = globalU32Ref;
-    let result = exports.proxy_get_buffer_status(typ, length_ptr.ptr(), flags_ptr.ptr());
+    let result = imports.proxy_get_buffer_status(typ, length_ptr.ptr(), flags_ptr.ptr());
     let resultTuple = new BufferStatusResult();
     resultTuple.result = result;
     if (result == WasmResultValues.Ok) {
@@ -433,7 +433,7 @@ export function log(level: LogLevelValues, logMessage: string): void {
   export function define_metric(typ: MetricTypeValues, name: string): MetricResult {
     let metric_id = globalU32Ref;
     let nameutf8 = String.UTF8.encode(name);
-    let res = exports.proxy_define_metric(typ, changetype<usize>(nameutf8), nameutf8.byteLength, metric_id.ptr());
+    let res = imports.proxy_define_metric(typ, changetype<usize>(nameutf8), nameutf8.byteLength, metric_id.ptr());
     let result = new MetricResult();
     result.result = res;
     if (res == WasmResultValues.Ok) {
@@ -443,10 +443,10 @@ export function log(level: LogLevelValues, logMessage: string): void {
   }
   
   export function increment_metric(metric_id: u32, offset: i64): WasmResultValues {
-    return exports.proxy_increment_metric(metric_id, offset);
+    return imports.proxy_increment_metric(metric_id, offset);
   }
   export function record_metric(metric_id: u32, value: u64): WasmResultValues {
-    return exports.proxy_record_metric(metric_id, value);
+    return imports.proxy_record_metric(metric_id, value);
   }
   
   class MetricData {
@@ -456,7 +456,7 @@ export function log(level: LogLevelValues, logMessage: string): void {
   
   export function get_metric(metric_id: u32): MetricData {
     let metric_data = globalU64Ref;
-    let res = exports.proxy_record_metric(metric_id, metric_data.ptr());
+    let res = imports.proxy_record_metric(metric_id, metric_data.ptr());
     let result = new MetricData();
     result.result = res;
     if (res == WasmResultValues.Ok) {
@@ -466,10 +466,10 @@ export function log(level: LogLevelValues, logMessage: string): void {
   }
   
   export function set_effective_context(effective_context_id: u32): WasmResultValues {
-    return exports.proxy_set_effective_context(effective_context_id);
+    return imports.proxy_set_effective_context(effective_context_id);
   }
   
-  export function done(): WasmResultValues { return exports.proxy_done(); }
+  export function done(): WasmResultValues { return imports.proxy_done(); }
   /////// runtime support
   
   export abstract class BaseContext {
@@ -534,7 +534,7 @@ export abstract class RootContext extends BaseContext {
       let header_pairs = serializeHeaders(headers);
       let trailer_pairs = serializeHeaders(trailers);
       let token = globalU32Ref;
-      let result = exports.proxy_http_call(changetype<usize>(buffer), buffer.byteLength, changetype<usize>(header_pairs), header_pairs.byteLength, changetype<usize>(body), body.byteLength, changetype<usize>(trailer_pairs), trailer_pairs.byteLength, timeout_milliseconds, token.ptr());
+      let result = imports.proxy_http_call(changetype<usize>(buffer), buffer.byteLength, changetype<usize>(header_pairs), header_pairs.byteLength, changetype<usize>(body), body.byteLength, changetype<usize>(trailer_pairs), trailer_pairs.byteLength, timeout_milliseconds, token.ptr());
       if (result == WasmResultValues.Ok) {
         this.http_calls_[token.data] = new HttpCallback(ctx, cb);
       }
