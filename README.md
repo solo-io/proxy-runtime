@@ -1,11 +1,11 @@
 Start a project!
-```
+```shell
 npm install --save-dev assemblyscript
 npx asinit .
 ```
 
 add `--use abort=abort_proc_exit` to the `asc` in packages.json. for example:
-```
+```json
     "asbuild:untouched": "asc assembly/index.ts -b build/untouched.wasm --use abort=abort_proc_exit -t build/untouched.wat --sourceMap http://127.0.0.1:8081/build/untouched.wasm.map --validate --debug",
     "asbuild:optimized": "asc assembly/index.ts -b build/optimized.wasm --use abort=abort_proc_exit -t build/optimized.wat --sourceMap --validate --optimize",
 ```
@@ -15,7 +15,7 @@ run `npm install`
 
 Copy this into index.ts:
 
-```
+```ts
 export * from "@solo-io/envoy";
 import { RootContext, Context, RootContextHelper, ContextHelper, registerRootContext, FilterHeadersStatusValues, HeaderMapTypeValues, add_header_map_value_string } from "@solo-io/envoy/runtime";
 
@@ -39,7 +39,7 @@ registerRootContext(() => { return RootContextHelper.wrap(new AddHeaderRoot()); 
 ```
 
 Configure envoy with your filter:
-```
+```yaml
           - name: envoy.filters.http.wasm
             config:
               config:
