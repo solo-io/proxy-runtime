@@ -4,7 +4,7 @@ import { free } from "./malloc";
 
 import {
   proc_exit,
-} from "bindings/wasi";
+} from "bindings/wasi_unstable";
 
 // abort function.
 // use with:

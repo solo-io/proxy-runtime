@@ -4,6 +4,12 @@ npm install --save-dev assemblyscript
 npx asinit .
 ```
 
+add `--use abort=abort_proc_exit` to the `asc` in packages.json. for example:
+```
+    "asbuild:untouched": "asc assembly/index.ts -b build/untouched.wasm --use abort=abort_proc_exit -t build/untouched.wat --sourceMap http://127.0.0.1:8081/build/untouched.wasm.map --validate --debug",
+    "asbuild:optimized": "asc assembly/index.ts -b build/optimized.wasm --use abort=abort_proc_exit -t build/optimized.wat --sourceMap --validate --optimize",
+```
+
 Add `"@solo-io/envoy": "file:/home/yuval/Projects/solo/envoy-assemblyscript"` to your dependencies.
 run `npm install`
 
@@ -48,3 +54,4 @@ Configure envoy with your filter:
                       filename: /PATH/TO/CODE/build/untouched.wasm
                   allow_precompiled: false
 ```
+
