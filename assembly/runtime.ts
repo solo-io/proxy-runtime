@@ -364,7 +364,11 @@ function get_header_map_flat_pairs(typ: HeaderMapTypeValues): ArrayBuffer {
   }
   return new ArrayBuffer(0);
 }
-export function get_header_map_pairs(typ: HeaderMapTypeValues): Headers { throw new Error('un impl yet'); }
+
+export function get_header_map_pairs(typ: HeaderMapTypeValues): Headers {
+  let pairs = get_header_map_flat_pairs(typ);
+  return deserializeHeaders(pairs);
+}
 
 function set_header_map_flat_pairs(typ: HeaderMapTypeValues, flat_headers: ArrayBuffer): void {
   CHECK_RESULT(imports.proxy_set_header_map_pairs(typ, changetype<usize>(flat_headers), flat_headers.byteLength));
@@ -536,14 +540,14 @@ export class RootContext extends BaseContext {
   onDone(): bool { return true; } // Called when the VM is being torn down.
   done(): void { } // Report that we are now done following returning false from onDone.
   createContext(): Context {
-    log(LogLevelValues.critical, "base ctx: can't create context")
-    throw 123;
+    log(LogLevelValues.critical, "base ctx: can't create context");
+    throw new Error("not implemented");
   }
 
-  httpCall(uri: string, headers: Headers, body: ArrayBuffer, trailers: Headers,
+  httpCall(cluster: string, headers: Headers, body: ArrayBuffer, trailers: Headers,
     timeout_milliseconds: u32, cb : HttpCallback): WasmResultValues {
 
-    let buffer = String.UTF8.encode(uri);
+    let buffer = String.UTF8.encode(cluster);
     let header_pairs = serializeHeaders(headers);
     let trailer_pairs = serializeHeaders(trailers);
     let token = globalU32Ref;
