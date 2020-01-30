@@ -335,8 +335,8 @@ export function send_local_response(response_code: u32, response_code_details: s
 
 export function clear_route_cache(): WasmResultValues { return imports.proxy_clear_route_cache(); }
 /*
-export function get_shared_data(key_ptr, key_size, value_ptr, value_size, cas) { return 0; },
-export function set_shared_data(key_ptr, key_size, value_ptr, value_size, cas) { return 0; },
+export function get_shared_data(key: string, value : ArrayBuffer, cas) { return 0; },
+export function set_shared_data(key: string, value_ptr, value_size, cas) { return 0; },
 */
 export function register_shared_queue(queue_name: string, token: u32): WasmResultValues {
   let queue_name_buffer = String.UTF8.encode(queue_name);
