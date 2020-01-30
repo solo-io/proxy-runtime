@@ -298,7 +298,7 @@ function deserializeHeaders(headers: ArrayBuffer): Headers {
   let numheaders = Uint32Array.wrap(headers, 0, 1)[0];
   let sizes = Uint32Array.wrap(headers, sizeof<u32>(), 2 * numheaders);
   let data = headers.slice(sizeof<u32>() * (1 + 2 * numheaders));
-  let result : Headers = [];
+  let result: Headers = [];
   let sizeIndex = 0;
   let dataIndex = 0;
   // for in loop doesn't seem to be supported..
@@ -337,11 +337,40 @@ export function clear_route_cache(): WasmResultValues { return imports.proxy_cle
 /*
 export function get_shared_data(key_ptr, key_size, value_ptr, value_size, cas) { return 0; },
 export function set_shared_data(key_ptr, key_size, value_ptr, value_size, cas) { return 0; },
-export function register_shared_queue(queue_name_ptr, queue_name_size, token) { return 0; },
-export function resolve_shared_queue(vm_id, vm_id_size, queue_name_ptr, queue_name_size, token) { return 0; },
-export function dequeue_shared_queue(token, data_ptr, data_size) { return 0; },
-export function enqueue_shared_queue(token, data_ptr, data_size) { return 0; },
 */
+export function register_shared_queue(queue_name: string, token: u32): WasmResultValues {
+  let queue_name_buffer = String.UTF8.encode(queue_name);
+  return imports.proxy_register_shared_queue(changetype<usize>(queue_name_buffer), queue_name_buffer.byteLength, token);
+}
+
+export function resolve_shared_queue(vm_id: string, queue_name: string, token: u32): WasmResultValues {
+  let vm_id_buffer = String.UTF8.encode(vm_id);
+  let queue_name_buffer = String.UTF8.encode(queue_name);
+  return imports.proxy_resolve_shared_queue(changetype<usize>(vm_id_buffer), vm_id_buffer.byteLength,
+    changetype<usize>(queue_name_buffer), queue_name_buffer.byteLength, token);
+}
+
+class DequeueSharedQueueResult {
+  result: WasmResultValues;
+  data: ArrayBuffer;
+}
+export function dequeue_shared_queue(token: u32): DequeueSharedQueueResult {
+  let result = new DequeueSharedQueueResult();
+
+  let data = globalArrayBufferReference;
+
+  let res = imports.proxy_dequeue_shared_queue(token, data.bufferPtr(), data.sizePtr());
+  result.result = res;
+  if (res == WasmResultValues.Ok) {
+    result.data = data.toArrayBuffer();
+  }
+  return result;
+}
+
+export function enqueue_shared_queue(token: u32, data: ArrayBuffer): WasmResultValues {
+  return imports.proxy_enqueue_shared_queue(token, changetype<usize>(data), data.byteLength);
+}
+
 export function add_header_map_value(typ: HeaderMapTypeValues, key: ArrayBuffer, value: ArrayBuffer): WasmResultValues {
   return imports.proxy_add_header_map_value(typ, changetype<usize>(key), key.byteLength, changetype<usize>(value), value.byteLength);
 }
@@ -476,7 +505,7 @@ export abstract class BaseContext {
 class HttpCallback {
   ctx: Object;
   cb: (c: Object) => void;
-  call():void{ this.cb(this.ctx);}
+  call(): void { this.cb(this.ctx); }
   constructor(ctx: Object, cb: (c: Context) => void) {
     this.ctx = ctx;
     this.cb = cb;
@@ -503,7 +532,7 @@ export class RootContext extends BaseContext {
 
   private http_calls_: Map<u32, HttpCallback>;
   private grpc_calls_: Map<u32, GrpcCallback>;
-  
+
   constructor() {
     super();
     this.http_calls_ = new Map();
@@ -517,7 +546,7 @@ export class RootContext extends BaseContext {
     this.createContext_ = (thiz: RootContext) => { return thiz.createContext(); };
   }
 
-  cancelPendingRequests():void{
+  cancelPendingRequests(): void {
     let keys = this.http_calls_.keys();
     for (let i = 0; i < keys.length; ++i) {
       let key = keys[i];
@@ -545,7 +574,7 @@ export class RootContext extends BaseContext {
   }
 
   httpCall(cluster: string, headers: Headers, body: ArrayBuffer, trailers: Headers,
-    timeout_milliseconds: u32, cb : HttpCallback): WasmResultValues {
+    timeout_milliseconds: u32, cb: HttpCallback): WasmResultValues {
 
     let buffer = String.UTF8.encode(cluster);
     let header_pairs = serializeHeaders(headers);
@@ -569,7 +598,7 @@ export class RootContext extends BaseContext {
   on_grpc_trailing_metadata(token: u32, trailers: u32): void { }
   on_grpc_receive(token: u32, response_size: u32): void { }
   on_grpc_close(token: u32, status_code: u32): void { }
-  
+
   /*
   grpc_call(service_proto:ArrayBuffer, service_name:string, method_name:string, request :ArrayBuffer, timeout_milliseconds : u32): WasmResultValues { 
     let service_name_buffer = String.UTF8.encode(service_name);
