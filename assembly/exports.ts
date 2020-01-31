@@ -1,4 +1,4 @@
-import { getContext, getRootContext, ensureContext, ensureRootContext } from "./runtime";
+import { getContext, getRootContext, ensureContext, ensureRootContext, deleteContext } from "./runtime";
 
 ///// CALLS IN
 type FilterStatus = i32;
@@ -25,7 +25,9 @@ export function proxy_on_configure(root_context_id: u32, configuration_size: u32
 export function proxy_on_tick(root_context_id: u32): void {
   getRootContext(root_context_id).onTick();
 }
-export function proxy_on_queue_ready(root_context_id: u32, token: u32): void { }
+export function proxy_on_queue_ready(root_context_id: u32, token: u32): void {
+  getRootContext(root_context_id).onQueueReady(token);
+}
 
 // Stream calls.
 export function proxy_on_context_create(context_id: u32, root_context_id: u32): void {
@@ -98,4 +100,8 @@ export function proxy_on_grpc_close(context_id: u32, token: u32, status_code: u3
 // proxy_on_log occurs after proxy_on_done.
 export function proxy_on_log(context_id: u32): void { }
 // The Context in the proxy has been destroyed and no further calls will be coming.
-export function proxy_on_delete(context_id: u32): void { }
+export function proxy_on_delete(context_id: u32): void {
+  let ctx = getContext(context_id);
+  ctx.onDelete_(ctx);
+  deleteContext(context_id);
+}

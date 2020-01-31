@@ -566,6 +566,7 @@ export class RootContext extends BaseContext {
   onStart(vm_configuration_size: size_t): bool { return true; }
   // Called when the timer goes off.
   onTick(): void { }
+  onQueueReady(token: u32): void { }
   onDone(): bool { return true; } // Called when the VM is being torn down.
   done(): void { } // Report that we are now done following returning false from onDone.
   createContext(): Context {
@@ -639,8 +640,7 @@ export class Context {
   onResponseTrailers_: (thiz: Context, s: u32) => FilterTrailersStatusValues;
   onDone_: (thiz: Context) => void;
   onLog_: (thiz: Context) => void;
-
-
+  onDelete_: (thiz: Context) => void;
 
   constructor() {
     this.onNewConnection_ = (thiz: Context) => { return thiz.onNewConnection(); }
@@ -658,6 +658,7 @@ export class Context {
     this.onResponseTrailers_ = (thiz: Context, s: u32) => { return thiz.onResponseTrailers(s); }
     this.onDone_ = (thiz: Context) => { thiz.onDone(); }
     this.onLog_ = (thiz: Context) => { thiz.onLog(); }
+    this.onDelete_ = (thiz: Context) => { thiz.onDelete(); }
   }
 
   onNewConnection(): FilterStatusValues { return FilterStatusValues.Continue; }
@@ -676,6 +677,7 @@ export class Context {
   onResponseTrailers(s: u32): FilterTrailersStatusValues { return FilterTrailersStatusValues.Continue }
   onDone(): void { } // Called when the stream has completed.
   onLog(): void { }  // Called after onDone when logging is requested.
+  onDelete(): void { }  // Called after onDone when logging is requested.
 }
 
 function get_plugin_root_id(): string {
@@ -715,6 +717,9 @@ let context_map = new Map<u32, Context>();
 export function getContext(context_id: u32): Context {
   return context_map.get(context_id);
 }
+export function deleteContext(context_id: u32): void {
+  context_map.delete(context_id);
+}
 export function getRootContext(context_id: u32): RootContext {
   return root_context_map.get(context_id);
 }
@@ -751,8 +756,23 @@ export class ContextHelper<T extends Context> extends Context {
   that: T;
   constructor(that: T) {
     super();
-    // OOP HACK
+    // OOP HACK - till asm script supports proper oop we have to do this
+    this.onNewConnection_ = (thiz: Context) => { return (thiz as ContextHelper<T>).that.onNewConnection(); }
+    this.onDownstreamData_ = (thiz: Context, size: size_t, end: bool) => { return (thiz as ContextHelper<T>).that.onDownstreamData(size, end); }
+    this.onUpstreamData_ = (thiz: Context, size: size_t, end: bool) => { return (thiz as ContextHelper<T>).that.onUpstreamData(size, end); }
+    this.onDownstreamConnectionClose_ = (thiz: Context, t: PeerTypeValues) => { (thiz as ContextHelper<T>).that.onDownstreamConnectionClose(t); }
+    this.onUpstreamConnectionClose_ = (thiz: Context, t: PeerTypeValues) => { (thiz as ContextHelper<T>).that.onUpstreamConnectionClose(t); }
+    this.onRequestHeaders_ = (thiz: Context, a: u32) => { return (thiz as ContextHelper<T>).that.onRequestHeaders(a); }
+    this.onRequestMetadata_ = (thiz: Context, a: u32) => { return (thiz as ContextHelper<T>).that.onRequestMetadata(a); }
+    this.onRequestBody_ = (thiz: Context, body_buffer_length: size_t, end_of_stream: bool) => { return (thiz as ContextHelper<T>).that.onRequestBody(body_buffer_length, end_of_stream); }
+    this.onRequestTrailers_ = (thiz: Context, a: u32) => { return (thiz as ContextHelper<T>).that.onRequestTrailers(a); }
     this.onResponseHeaders_ = (thiz: Context, a: u32) => { return (thiz as ContextHelper<T>).that.onResponseHeaders(a); }
+    this.onResponseMetadata_ = (thiz: Context, a: u32) => { return (thiz as ContextHelper<T>).that.onResponseMetadata(a); }
+    this.onResponseBody_ = (thiz: Context, body_buffer_length: size_t, end_of_stream: bool) => { return (thiz as ContextHelper<T>).that.onResponseBody(body_buffer_length, end_of_stream); }
+    this.onResponseTrailers_ = (thiz: Context, s: u32) => { return (thiz as ContextHelper<T>).that.onResponseTrailers(s); }
+    this.onDone_ = (thiz: Context) => { (thiz as ContextHelper<T>).that.onDone(); }
+    this.onLog_ = (thiz: Context) => { (thiz as ContextHelper<T>).that.onLog(); }
+    this.onDelete_ = (thiz: Context) => { (thiz as ContextHelper<T>).that.onDelete(); }
   }
 }
 
