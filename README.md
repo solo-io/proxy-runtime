@@ -1,4 +1,7 @@
-Start a project!
+Local dev setup:
+Clone this repo to somewhere on disk.
+
+Create a new project:
 ```shell
 npm install --save-dev assemblyscript
 npx asinit .
@@ -13,7 +16,7 @@ add `--use abort=abort_proc_exit` to the `asc` in packages.json. for example:
 Add `"@solo-io/envoy": "file:/home/yuval/Projects/solo/envoy-assemblyscript"` to your dependencies.
 run `npm install`
 
-Copy this into index.ts:
+Copy this into assembly/index.ts:
 
 ```ts
 export * from "@solo-io/envoy";
