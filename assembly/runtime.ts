@@ -744,6 +744,12 @@ export class RootContextHelper<T extends RootContext> extends RootContext {
   constructor(that: T) {
     super();
     // OOP HACK
+    this.validateConfiguration_ = (thiz: RootContext, configuration_size: size_t) => { return (thiz as RootContextHelper<T>).that.validateConfiguration(configuration_size); };
+    this.onConfigure_ = (thiz: RootContext, configuration_size: size_t) => { return (thiz as RootContextHelper<T>).that.onConfigure(configuration_size); };
+    this.onStart_ = (thiz: RootContext, vm_configuration_size: size_t) => { return (thiz as RootContextHelper<T>).that.onStart(vm_configuration_size); };
+    this.onTick_ = (thiz: RootContext) => { (thiz as RootContextHelper<T>).that.onTick(); };
+    this.onDone_ = (thiz: RootContext) => { return (thiz as RootContextHelper<T>).that.onDone(); };
+    this.done_ = (thiz: RootContext) => { (thiz as RootContextHelper<T>).that.done(); };
     this.createContext_ = (thiz: RootContext) => { return (thiz as RootContextHelper<T>).that.createContext(); };
   }
 }
