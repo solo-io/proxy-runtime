@@ -6,6 +6,8 @@ import {
   proc_exit,
 } from "bindings/wasi_unstable";
 
+import UTF8 = String.UTF8;
+
 // abort function.
 // use with:
 // --use abort=index/abort_proc_exit
@@ -22,8 +24,6 @@ export function abort_proc_exit(
   if (message != null) {
     log(LogLevelValues.critical, message.toString());
   }
-  // from the docs: exceptions are not supported, and will abort
-  //  throw new Error(":(");
   proc_exit(255);
 }
 type size_t = usize;
@@ -192,7 +192,7 @@ export enum BufferFlagsValues {
 export function log(level: LogLevelValues, logMessage: string): void {
   // from the docs:
   // Like JavaScript, AssemblyScript stores strings in UTF-16 encoding represented by the API as UCS-2, 
-  let buffer = String.UTF8.encode(logMessage);
+  let buffer = UTF8.encode(logMessage);
   imports.proxy_log(level as imports.LogLevel, changetype<usize>(buffer), buffer.byteLength);
 }
 
@@ -201,7 +201,7 @@ export function get_configuration(): ArrayBuffer {
   CHECK_RESULT(imports.proxy_get_configuration(globalArrayBufferReference.bufferPtr(), globalArrayBufferReference.sizePtr()));
   let array = globalArrayBufferReference.toArrayBuffer();
 
-  log(LogLevelValues.debug, String.UTF8.decode(array));
+  log(LogLevelValues.debug, UTF8.decode(array));
   return array;
 }
 
@@ -228,14 +228,14 @@ export function get_current_time_nanoseconds(): u64 {
 }
 
 export function get_property(path: string): ArrayBuffer {
-  let buffer = String.UTF8.encode(path);
+  let buffer = UTF8.encode(path);
 
   CHECK_RESULT(imports.proxy_get_property(changetype<usize>(buffer), buffer.byteLength, globalArrayBufferReference.bufferPtr(), globalArrayBufferReference.sizePtr()));
   return globalArrayBufferReference.toArrayBuffer();
 }
 
 export function set_property(path: string, data: ArrayBuffer): WasmResultValues {
-  let buffer = String.UTF8.encode(path);
+  let buffer = UTF8.encode(path);
   return imports.proxy_set_property(changetype<usize>(buffer), buffer.byteLength, changetype<usize>(data), data.byteLength);
 }
 
@@ -326,7 +326,7 @@ export function continue_request(): WasmResultValues { return imports.proxy_cont
 export function continue_response(): WasmResultValues { return imports.proxy_continue_response(); }
 export function send_local_response(response_code: u32, response_code_details: string, body: ArrayBuffer,
   additional_headers: Headers, grpc_status: GrpcStatusValues): WasmResultValues {
-  let response_code_details_buffer = String.UTF8.encode(response_code_details);
+  let response_code_details_buffer = UTF8.encode(response_code_details);
   let headers = serializeHeaders(additional_headers);
   return imports.proxy_send_local_response(response_code, changetype<usize>(response_code_details_buffer), response_code_details_buffer.byteLength,
     changetype<usize>(body), body.byteLength, changetype<usize>(headers), headers.byteLength, grpc_status);
@@ -336,7 +336,7 @@ export function send_local_response(response_code: u32, response_code_details: s
 export function clear_route_cache(): WasmResultValues { return imports.proxy_clear_route_cache(); }
 
 export function get_shared_data(key: string, value : ArrayBuffer/*, cas*/) : WasmResultValues{
-  const key_buffer = String.UTF8.encode(key);
+  const key_buffer = UTF8.encode(key);
   let dummy = globalUsizeRef;
   return imports.proxy_get_shared_data(changetype<usize>(key_buffer), key_buffer.byteLength, changetype<usize>(value), value.byteLength, dummy.ptr());
 }
@@ -346,7 +346,7 @@ class SetSharedData{
   result:WasmResultValues;
 }
 export function set_shared_data(key: string/*, cas*/):SetSharedData {
-  const key_buffer = String.UTF8.encode(key);
+  const key_buffer = UTF8.encode(key);
   let dummy = globalUsizeRef;
   let value = globalArrayBufferReference;
   let result = new SetSharedData();
@@ -358,13 +358,13 @@ export function set_shared_data(key: string/*, cas*/):SetSharedData {
 }
 
 export function register_shared_queue(queue_name: string, token: u32): WasmResultValues {
-  let queue_name_buffer = String.UTF8.encode(queue_name);
+  let queue_name_buffer = UTF8.encode(queue_name);
   return imports.proxy_register_shared_queue(changetype<usize>(queue_name_buffer), queue_name_buffer.byteLength, token);
 }
 
 export function resolve_shared_queue(vm_id: string, queue_name: string, token: u32): WasmResultValues {
-  let vm_id_buffer = String.UTF8.encode(vm_id);
-  let queue_name_buffer = String.UTF8.encode(queue_name);
+  let vm_id_buffer = UTF8.encode(vm_id);
+  let queue_name_buffer = UTF8.encode(queue_name);
   return imports.proxy_resolve_shared_queue(changetype<usize>(vm_id_buffer), vm_id_buffer.byteLength,
     changetype<usize>(queue_name_buffer), queue_name_buffer.byteLength, token);
 }
@@ -394,10 +394,78 @@ export function add_header_map_value(typ: HeaderMapTypeValues, key: ArrayBuffer,
   return imports.proxy_add_header_map_value(typ, changetype<usize>(key), key.byteLength, changetype<usize>(value), value.byteLength);
 }
 export function add_header_map_value_string(typ: HeaderMapTypeValues, key: string, value: string): WasmResultValues {
-  let key_arr = String.UTF8.encode(key);
-  let value_arr = String.UTF8.encode(value);
+  let key_arr = UTF8.encode(key);
+  let value_arr = UTF8.encode(value);
   return imports.proxy_add_header_map_value(typ, changetype<usize>(key_arr), key_arr.byteLength, changetype<usize>(value_arr), value_arr.byteLength);
 }
+
+
+class HeaderStreamManipulator {
+  typ : HeaderMapTypeValues;
+  constructor(typ : HeaderMapTypeValues){
+    this.typ = typ;
+  }
+
+
+/**
+ * Add a header.
+ * @param key the header name.
+ * @param value the header value.
+ */ 
+add(key: string, value: string): void {
+ add_header_map_value_string(this.typ, key, value);
+}
+
+replace(key: string, value: string): void {
+
+ replace_header_map_value_string(this.typ, key, value);
+}
+
+get(key: string): string {
+  return get_header_map_value_string(this.typ, key);
+}
+remove(key: string): void {
+  remove_header_map_value_string(this.typ, key);
+}
+
+get_headers(): Headers {
+  return get_header_map_pairs(this.typ);
+}
+
+set_headers(headers:Headers): void {
+  return set_header_map_pairs(this.typ, headers);
+}
+
+}
+class HeaderMapManipulator {
+  request : HeaderStreamManipulator;
+  response : HeaderStreamManipulator;
+  constructor(request : HeaderStreamManipulator, response : HeaderStreamManipulator){
+    this.request = request;
+    this.response = response;
+  }
+}
+
+class HeaderManipulator {
+  headers : HeaderMapManipulator;
+  trailers : HeaderMapManipulator;
+  constructor(headers : HeaderMapManipulator, trailers : HeaderMapManipulator){
+    this.headers = headers;
+    this.trailers = trailers;
+  }
+}
+
+export var headers = new HeaderManipulator(
+  new HeaderMapManipulator(new HeaderStreamManipulator(HeaderMapTypeValues.RequestHeaders),new HeaderStreamManipulator(HeaderMapTypeValues.ResponseHeaders)),
+  new HeaderMapManipulator(new HeaderStreamManipulator(HeaderMapTypeValues.RequestTrailers),new HeaderStreamManipulator(HeaderMapTypeValues.ResponseTrailers)));
+
+
+function get_header_map_value_string(typ: HeaderMapTypeValues, key: string): string {
+  const key_buffer = String.UTF8.encode(key);
+  let result = get_header_map_value(typ, key_buffer);
+  return String.UTF8.decode(result);
+}
+
 export function get_header_map_value(typ: HeaderMapTypeValues, key: ArrayBuffer): ArrayBuffer {
   let result = imports.proxy_get_header_map_value(typ, changetype<usize>(key), key.byteLength, globalArrayBufferReference.bufferPtr(), globalArrayBufferReference.sizePtr());
   if (result == WasmResultValues.Ok) {
@@ -412,8 +480,8 @@ function get_header_map_flat_pairs(typ: HeaderMapTypeValues): ArrayBuffer {
   }
   return new ArrayBuffer(0);
 }
-
-export function get_header_map_pairs(typ: HeaderMapTypeValues): Headers {
+ 
+function get_header_map_pairs(typ: HeaderMapTypeValues): Headers {
   let pairs = get_header_map_flat_pairs(typ);
   return deserializeHeaders(pairs);
 }
@@ -422,13 +490,26 @@ function set_header_map_flat_pairs(typ: HeaderMapTypeValues, flat_headers: Array
   CHECK_RESULT(imports.proxy_set_header_map_pairs(typ, changetype<usize>(flat_headers), flat_headers.byteLength));
 }
 
-export function set_header_map_pairs(typ: HeaderMapTypeValues, headers: Headers): void {
+function set_header_map_pairs(typ: HeaderMapTypeValues, headers: Headers): void {
   let flat_headers = serializeHeaders(headers);
   set_header_map_flat_pairs(typ, flat_headers);
 }
+
+export function replace_header_map_value_string(typ: HeaderMapTypeValues, key: string, value: string): void {
+  let key_arr = UTF8.encode(key);
+  let value_arr = UTF8.encode(value);
+  replace_header_map_value(typ, key_arr, value_arr);
+}
+
 export function replace_header_map_value(typ: HeaderMapTypeValues, key: ArrayBuffer, value: ArrayBuffer): void {
   CHECK_RESULT(imports.proxy_replace_header_map_value(typ, changetype<usize>(key), key.byteLength, changetype<usize>(value), value.byteLength));
 }
+
+export function remove_header_map_value_string(typ: HeaderMapTypeValues, key: string): void {
+  let key_arr = UTF8.encode(key);
+  remove_header_map_value(typ, key_arr);
+}
+
 export function remove_header_map_value(typ: HeaderMapTypeValues, key: ArrayBuffer): void {
   CHECK_RESULT(imports.proxy_remove_header_map_value(typ, changetype<usize>(key), key.byteLength));
 }
@@ -476,7 +557,7 @@ class MetricResult {
 
 export function define_metric(typ: MetricTypeValues, name: string): MetricResult {
   let metric_id = globalU32Ref;
-  let nameutf8 = String.UTF8.encode(name);
+  let nameutf8 = UTF8.encode(name);
   let res = imports.proxy_define_metric(typ, changetype<usize>(nameutf8), nameutf8.byteLength, metric_id.ptr());
   let result = new MetricResult();
   result.result = res;
@@ -596,7 +677,7 @@ export class RootContext extends BaseContext {
   httpCall(cluster: string, headers: Headers, body: ArrayBuffer, trailers: Headers,
     timeout_milliseconds: u32, cb: HttpCallback): WasmResultValues {
 
-    let buffer = String.UTF8.encode(cluster);
+    let buffer = UTF8.encode(cluster);
     let header_pairs = serializeHeaders(headers);
     let trailer_pairs = serializeHeaders(trailers);
     let token = globalU32Ref;
@@ -621,8 +702,8 @@ export class RootContext extends BaseContext {
 
   /*
   grpc_call(service_proto:ArrayBuffer, service_name:string, method_name:string, request :ArrayBuffer, timeout_milliseconds : u32): WasmResultValues { 
-    let service_name_buffer = String.UTF8.encode(service_name);
-    let method_name_buffer = String.UTF8.encode(method_name);
+    let service_name_buffer = UTF8.encode(service_name);
+    let method_name_buffer = UTF8.encode(method_name);
     let token = globalU32Ref;
     let result = imports.proxy_grpc_call(changetype<usize>(service_proto), service_proto.byteLength,
     changetype<usize>(service_name_buffer), service_name_buffer.byteLength, 
@@ -705,7 +786,7 @@ function get_plugin_root_id(): string {
   if (root_id.byteLength == 0) {
     return "";
   }
-  return String.UTF8.decode(root_id);
+  return UTF8.decode(root_id);
 }
 
 let root_context_map = new Map<u32, RootContext>();

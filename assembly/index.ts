@@ -1,2 +1,1 @@
-export * from "./malloc";
-export * from "./exports";
+export * from "./runtime";

@@ -11,7 +11,6 @@ export type HeaderMapType = i32;
 export type BufferType = i32;
 export type BufferFlags = i32;
 
-
 // Configuration and Status
 // @ts-ignore: decorator
 @external("env", "proxy_get_configuration")
