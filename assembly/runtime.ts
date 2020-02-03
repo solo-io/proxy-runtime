@@ -416,27 +416,52 @@ add(key: string, value: string): void {
  add_header_map_value_string(this.typ, key, value);
 }
 
+/**
+ * Replace a header.
+ * @param key the header name.
+ * @param value the header value.
+ */ 
 replace(key: string, value: string): void {
-
  replace_header_map_value_string(this.typ, key, value);
 }
 
+/**
+ * Get a header.
+ * @param key the header name.
+ * @return the header value.
+ */ 
 get(key: string): string {
   return get_header_map_value_string(this.typ, key);
 }
+/**
+ * Remove a header.
+ * @param key the header name.
+ */ 
 remove(key: string): void {
   remove_header_map_value_string(this.typ, key);
 }
-
+/**
+ * get all headers.
+ */
 get_headers(): Headers {
   return get_header_map_pairs(this.typ);
 }
 
+/**
+ * set all headers.
+ */
 set_headers(headers:Headers): void {
   return set_header_map_pairs(this.typ, headers);
 }
 
 }
+
+/**
+ * Manipulate request and response headers.
+ * Note that request header manipulation will only have effect before the request goes upstream.
+ * Response header manipulation can happen only after the response was started and before it 
+ * was sent downstream.
+ */
 class HeaderMapManipulator {
   request : HeaderStreamManipulator;
   response : HeaderStreamManipulator;
@@ -446,7 +471,11 @@ class HeaderMapManipulator {
   }
 }
 
-class HeaderManipulator {
+/**
+ * Methods to manipulate the current stream. No need to instantiate this class. use the global
+ * stream_context variable.
+ */
+class StreamContext {
   headers : HeaderMapManipulator;
   trailers : HeaderMapManipulator;
   constructor(headers : HeaderMapManipulator, trailers : HeaderMapManipulator){
@@ -455,7 +484,10 @@ class HeaderManipulator {
   }
 }
 
-export var headers = new HeaderManipulator(
+/**
+ * Use this variable to manipulate the current stream.
+ */
+export var stream_context = new StreamContext(
   new HeaderMapManipulator(new HeaderStreamManipulator(HeaderMapTypeValues.RequestHeaders),new HeaderStreamManipulator(HeaderMapTypeValues.ResponseHeaders)),
   new HeaderMapManipulator(new HeaderStreamManipulator(HeaderMapTypeValues.RequestTrailers),new HeaderStreamManipulator(HeaderMapTypeValues.ResponseTrailers)));
 
