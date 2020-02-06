@@ -1,4 +1,4 @@
-import { getContext, getRootContext, ensureContext, ensureRootContext, deleteContext } from "./runtime";
+import { getBaseContext, getContext, getRootContext, ensureContext, ensureRootContext, deleteContext } from "./runtime";
 
 ///// CALLS IN
 type FilterStatus = i32;
@@ -7,6 +7,7 @@ type FilterMetadataStatus = i32;
 type FilterTrailersStatus = i32;
 type FilterDataStatus = i32;
 type GrpcStatus = i32;
+type WasmOnDoneResult = u32;
 
 // Calls in.
 export function proxy_on_vm_start(root_context_id: u32, configuration_size: u32): u32 {
@@ -97,11 +98,22 @@ export function proxy_on_grpc_close(context_id: u32, token: u32, status_code: u3
 
 // The stream/vm has completed.
 
+export function proxy_on_done(context_id: u32): WasmOnDoneResult {
+  let ctx = getBaseContext(context_id);
+  if (ctx.onDone_(ctx)){
+    return 0;
+  }
+  return 1;
+}
+
 // proxy_on_log occurs after proxy_on_done.
-export function proxy_on_log(context_id: u32): void { }
+export function proxy_on_log(context_id: u32): void {
+  let ctx = getContext(context_id);
+  ctx.onLog_(ctx,);
+}
 // The Context in the proxy has been destroyed and no further calls will be coming.
 export function proxy_on_delete(context_id: u32): void {
-  let ctx = getContext(context_id);
+  let ctx = getBaseContext(context_id);
   ctx.onDelete_(ctx);
   deleteContext(context_id);
 }

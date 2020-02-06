@@ -6,7 +6,6 @@ import {
   proc_exit,
 } from "bindings/wasi_unstable";
 
-import UTF8 = String.UTF8;
 
 // abort function.
 // use with:
@@ -192,18 +191,10 @@ export enum BufferFlagsValues {
 export function log(level: LogLevelValues, logMessage: string): void {
   // from the docs:
   // Like JavaScript, AssemblyScript stores strings in UTF-16 encoding represented by the API as UCS-2, 
-  let buffer = UTF8.encode(logMessage);
+  let buffer = String.UTF8.encode(logMessage);
   imports.proxy_log(level as imports.LogLevel, changetype<usize>(buffer), buffer.byteLength);
 }
 
-// temporarily exported the function for testing
-export function get_configuration(): ArrayBuffer {
-  CHECK_RESULT(imports.proxy_get_configuration(globalArrayBufferReference.bufferPtr(), globalArrayBufferReference.sizePtr()));
-  let array = globalArrayBufferReference.toArrayBuffer();
-
-  log(LogLevelValues.debug, UTF8.decode(array));
-  return array;
-}
 
 class StatusWithData {
   status: u32;
@@ -228,14 +219,14 @@ export function get_current_time_nanoseconds(): u64 {
 }
 
 export function get_property(path: string): ArrayBuffer {
-  let buffer = UTF8.encode(path);
+  let buffer = String.UTF8.encode(path);
 
   CHECK_RESULT(imports.proxy_get_property(changetype<usize>(buffer), buffer.byteLength, globalArrayBufferReference.bufferPtr(), globalArrayBufferReference.sizePtr()));
   return globalArrayBufferReference.toArrayBuffer();
 }
 
 export function set_property(path: string, data: ArrayBuffer): WasmResultValues {
-  let buffer = UTF8.encode(path);
+  let buffer = String.UTF8.encode(path);
   return imports.proxy_set_property(changetype<usize>(buffer), buffer.byteLength, changetype<usize>(data), data.byteLength);
 }
 
@@ -326,7 +317,7 @@ export function continue_request(): WasmResultValues { return imports.proxy_cont
 export function continue_response(): WasmResultValues { return imports.proxy_continue_response(); }
 export function send_local_response(response_code: u32, response_code_details: string, body: ArrayBuffer,
   additional_headers: Headers, grpc_status: GrpcStatusValues): WasmResultValues {
-  let response_code_details_buffer = UTF8.encode(response_code_details);
+  let response_code_details_buffer = String.UTF8.encode(response_code_details);
   let headers = serializeHeaders(additional_headers);
   return imports.proxy_send_local_response(response_code, changetype<usize>(response_code_details_buffer), response_code_details_buffer.byteLength,
     changetype<usize>(body), body.byteLength, changetype<usize>(headers), headers.byteLength, grpc_status);
@@ -336,7 +327,7 @@ export function send_local_response(response_code: u32, response_code_details: s
 export function clear_route_cache(): WasmResultValues { return imports.proxy_clear_route_cache(); }
 
 export function get_shared_data(key: string, value : ArrayBuffer/*, cas*/) : WasmResultValues{
-  const key_buffer = UTF8.encode(key);
+  const key_buffer = String.UTF8.encode(key);
   let dummy = globalUsizeRef;
   return imports.proxy_get_shared_data(changetype<usize>(key_buffer), key_buffer.byteLength, changetype<usize>(value), value.byteLength, dummy.ptr());
 }
@@ -346,7 +337,7 @@ class SetSharedData{
   result:WasmResultValues;
 }
 export function set_shared_data(key: string/*, cas*/):SetSharedData {
-  const key_buffer = UTF8.encode(key);
+  const key_buffer = String.UTF8.encode(key);
   let dummy = globalUsizeRef;
   let value = globalArrayBufferReference;
   let result = new SetSharedData();
@@ -358,13 +349,13 @@ export function set_shared_data(key: string/*, cas*/):SetSharedData {
 }
 
 export function register_shared_queue(queue_name: string, token: u32): WasmResultValues {
-  let queue_name_buffer = UTF8.encode(queue_name);
+  let queue_name_buffer = String.UTF8.encode(queue_name);
   return imports.proxy_register_shared_queue(changetype<usize>(queue_name_buffer), queue_name_buffer.byteLength, token);
 }
 
 export function resolve_shared_queue(vm_id: string, queue_name: string, token: u32): WasmResultValues {
-  let vm_id_buffer = UTF8.encode(vm_id);
-  let queue_name_buffer = UTF8.encode(queue_name);
+  let vm_id_buffer = String.UTF8.encode(vm_id);
+  let queue_name_buffer = String.UTF8.encode(queue_name);
   return imports.proxy_resolve_shared_queue(changetype<usize>(vm_id_buffer), vm_id_buffer.byteLength,
     changetype<usize>(queue_name_buffer), queue_name_buffer.byteLength, token);
 }
@@ -394,8 +385,8 @@ export function add_header_map_value(typ: HeaderMapTypeValues, key: ArrayBuffer,
   return imports.proxy_add_header_map_value(typ, changetype<usize>(key), key.byteLength, changetype<usize>(value), value.byteLength);
 }
 export function add_header_map_value_string(typ: HeaderMapTypeValues, key: string, value: string): WasmResultValues {
-  let key_arr = UTF8.encode(key);
-  let value_arr = UTF8.encode(value);
+  let key_arr = String.UTF8.encode(key);
+  let value_arr = String.UTF8.encode(value);
   return imports.proxy_add_header_map_value(typ, changetype<usize>(key_arr), key_arr.byteLength, changetype<usize>(value_arr), value_arr.byteLength);
 }
 
@@ -528,8 +519,8 @@ function set_header_map_pairs(typ: HeaderMapTypeValues, headers: Headers): void 
 }
 
 export function replace_header_map_value_string(typ: HeaderMapTypeValues, key: string, value: string): void {
-  let key_arr = UTF8.encode(key);
-  let value_arr = UTF8.encode(value);
+  let key_arr = String.UTF8.encode(key);
+  let value_arr = String.UTF8.encode(value);
   replace_header_map_value(typ, key_arr, value_arr);
 }
 
@@ -538,7 +529,7 @@ export function replace_header_map_value(typ: HeaderMapTypeValues, key: ArrayBuf
 }
 
 export function remove_header_map_value_string(typ: HeaderMapTypeValues, key: string): void {
-  let key_arr = UTF8.encode(key);
+  let key_arr = String.UTF8.encode(key);
   remove_header_map_value(typ, key_arr);
 }
 
@@ -582,6 +573,60 @@ export function get_buffer_status(typ: BufferTypeValues): BufferStatusResult {
   return resultTuple;
 }
 
+class Metric {
+  metric_id : u32;
+  
+  constructor(typ: MetricTypeValues, name: string) {
+    let metric_res =  define_metric(typ, name);
+    if (metric_res.result != WasmResultValues.Ok){
+      throw new Error("can't define metric")
+    }
+    this.metric_id = metric_res.metric_id;
+  }
+}
+
+class Gauge extends Metric {
+  metric_id : u32;
+  
+  constructor(name: string) {
+    super(MetricTypeValues.Gauge, name);
+  }
+  
+ increment(offset: i64): WasmResultValues {
+    return imports.proxy_increment_metric(this.metric_id, offset);
+  }
+  record(metric_id: u32, value: u64): WasmResultValues {
+    return imports.proxy_record_metric(metric_id, value);
+  }
+}
+
+class Historgram extends Metric {
+  metric_id : u32;
+  
+  constructor(name: string) {
+    super(MetricTypeValues.Histogram, name);
+  }
+  
+ increment(offset: i64): WasmResultValues {
+    return imports.proxy_increment_metric(this.metric_id, offset);
+  }
+  record(metric_id: u32, value: u64): WasmResultValues {
+    return imports.proxy_record_metric(metric_id, value);
+  }
+}
+
+class Counter extends Metric {
+  metric_id : u32;
+  
+  constructor(name: string) {
+    super(MetricTypeValues.Counter, name);
+  }
+  
+ increment(offset: u32): WasmResultValues {
+    return imports.proxy_increment_metric(this.metric_id, offset);
+  }
+}
+
 class MetricResult {
   result: WasmResultValues;
   metric_id: u32;
@@ -589,7 +634,7 @@ class MetricResult {
 
 export function define_metric(typ: MetricTypeValues, name: string): MetricResult {
   let metric_id = globalU32Ref;
-  let nameutf8 = UTF8.encode(name);
+  let nameutf8 = String.UTF8.encode(name);
   let res = imports.proxy_define_metric(typ, changetype<usize>(nameutf8), nameutf8.byteLength, metric_id.ptr());
   let result = new MetricResult();
   result.result = res;
@@ -630,7 +675,22 @@ export function done(): WasmResultValues { return imports.proxy_done(); }
 /////// runtime support
 
 export abstract class BaseContext {
+  context_id: u32;
+  onDone_: (thiz: BaseContext) => bool;
+  onDelete_: (thiz: BaseContext) => void;
+
+  constructor() {
+    this.onDone_ = (thiz: BaseContext) => { return thiz.onDone(); };
+    this.onDelete_ = (thiz: BaseContext) => { thiz.onDelete(); };
+  }
+
+  setEffectiveContext(): WasmResultValues{
+    return imports.proxy_set_effective_context(this.context_id);
+  }
+
   // abstract createContext(context_id:u32):Context;
+  onDone(): bool { return true; } // Called when the VM is being torn down.
+  onDelete(): void { } // Called when the VM is being torn down.
 }
 
 // we have to use a wrapper as asm script doesn't support closures just yet.
@@ -658,7 +718,6 @@ export class RootContext extends BaseContext {
   onConfigure_: (thiz: RootContext, configuration_size: size_t) => bool;
   onStart_: (thiz: RootContext, vm_configuration_size: size_t) => bool;
   onTick_: (thiz: RootContext) => void;
-  onDone_: (thiz: RootContext) => bool;
   done_: (thiz: RootContext) => void;
   createContext_: (thiz: RootContext) => Context;
 
@@ -673,11 +732,26 @@ export class RootContext extends BaseContext {
     this.onConfigure_ = (thiz: RootContext, configuration_size: size_t) => { return thiz.onConfigure(configuration_size); };
     this.onStart_ = (thiz: RootContext, vm_configuration_size: size_t) => { return thiz.onStart(vm_configuration_size); };
     this.onTick_ = (thiz: RootContext) => { thiz.onTick(); };
-    this.onDone_ = (thiz: RootContext) => { return thiz.onDone(); };
-    this.done_ = (thiz: RootContext) => { thiz.done(); };
     this.createContext_ = (thiz: RootContext) => { return thiz.createContext(); };
+    this.onDone_ = (thiz: BaseContext) => { return (thiz as RootContext).onDone(); };
+
   }
 
+  /** 
+   * Get root configuration. must only be called from validateConfiguration or onConfigure. 
+   * @return A buffer containing the filter configuration.
+   */
+  getConfiguration(): ArrayBuffer {
+    CHECK_RESULT(imports.proxy_get_configuration(globalArrayBufferReference.bufferPtr(), globalArrayBufferReference.sizePtr()));
+    let array = globalArrayBufferReference.toArrayBuffer();
+
+    log(LogLevelValues.debug, String.UTF8.decode(array));
+    return array;
+  }
+
+  /**
+   * cancels all pending http requests.
+   */
   cancelPendingRequests(): void {
     let keys = this.http_calls_.keys();
     for (let i = 0; i < keys.length; ++i) {
@@ -699,7 +773,7 @@ export class RootContext extends BaseContext {
   // Called when the timer goes off.
   onTick(): void { }
   onQueueReady(token: u32): void { }
-  onDone(): bool { return true; } // Called when the VM is being torn down.
+  onDone(): bool { this.cancelPendingRequests(); return true; } // Called when the VM is being torn down.
   done(): void { } // Report that we are now done following returning false from onDone.
   createContext(): Context {
     log(LogLevelValues.critical, "base ctx: can't create context");
@@ -709,7 +783,7 @@ export class RootContext extends BaseContext {
   httpCall(cluster: string, headers: Headers, body: ArrayBuffer, trailers: Headers,
     timeout_milliseconds: u32, cb: HttpCallback): WasmResultValues {
 
-    let buffer = UTF8.encode(cluster);
+    let buffer = String.UTF8.encode(cluster);
     let header_pairs = serializeHeaders(headers);
     let trailer_pairs = serializeHeaders(trailers);
     let token = globalU32Ref;
@@ -734,8 +808,8 @@ export class RootContext extends BaseContext {
 
   /*
   grpc_call(service_proto:ArrayBuffer, service_name:string, method_name:string, request :ArrayBuffer, timeout_milliseconds : u32): WasmResultValues { 
-    let service_name_buffer = UTF8.encode(service_name);
-    let method_name_buffer = UTF8.encode(method_name);
+    let service_name_buffer = String.UTF8.encode(service_name);
+    let method_name_buffer = String.UTF8.encode(method_name);
     let token = globalU32Ref;
     let result = imports.proxy_grpc_call(changetype<usize>(service_proto), service_proto.byteLength,
     changetype<usize>(service_name_buffer), service_name_buffer.byteLength, 
@@ -753,8 +827,7 @@ export class RootContext extends BaseContext {
 
 }
 
-export class Context {
-  readonly context_id: u32;
+export class Context extends BaseContext{
   readonly root_context: RootContext;
 
   onNewConnection_: (thiz: Context) => FilterStatusValues;
@@ -770,11 +843,10 @@ export class Context {
   onResponseMetadata_: (thiz: Context, a: u32) => FilterMetadataStatusValues;
   onResponseBody_: (thiz: Context, body_buffer_length: size_t, end_of_stream: bool) => FilterDataStatusValues;
   onResponseTrailers_: (thiz: Context, s: u32) => FilterTrailersStatusValues;
-  onDone_: (thiz: Context) => void;
   onLog_: (thiz: Context) => void;
-  onDelete_: (thiz: Context) => void;
 
   constructor() {
+    super();
     this.onNewConnection_ = (thiz: Context) => { return thiz.onNewConnection(); }
     this.onDownstreamData_ = (thiz: Context, size: size_t, end: bool) => { return thiz.onDownstreamData(size, end); }
     this.onUpstreamData_ = (thiz: Context, size: size_t, end: bool) => { return thiz.onUpstreamData(size, end); }
@@ -788,9 +860,7 @@ export class Context {
     this.onResponseMetadata_ = (thiz: Context, a: u32) => { return thiz.onResponseMetadata(a); }
     this.onResponseBody_ = (thiz: Context, body_buffer_length: size_t, end_of_stream: bool) => { return thiz.onResponseBody(body_buffer_length, end_of_stream); }
     this.onResponseTrailers_ = (thiz: Context, s: u32) => { return thiz.onResponseTrailers(s); }
-    this.onDone_ = (thiz: Context) => { thiz.onDone(); }
     this.onLog_ = (thiz: Context) => { thiz.onLog(); }
-    this.onDelete_ = (thiz: Context) => { thiz.onDelete(); }
   }
 
   onNewConnection(): FilterStatusValues { return FilterStatusValues.Continue; }
@@ -807,9 +877,7 @@ export class Context {
   onResponseMetadata(a: u32): FilterMetadataStatusValues { return FilterMetadataStatusValues.Continue }
   onResponseBody(body_buffer_length: size_t, end_of_stream: bool): FilterDataStatusValues { return FilterDataStatusValues.Continue }
   onResponseTrailers(s: u32): FilterTrailersStatusValues { return FilterTrailersStatusValues.Continue }
-  onDone(): void { } // Called when the stream has completed.
   onLog(): void { }  // Called after onDone when logging is requested.
-  onDelete(): void { }  // Called after onDone when logging is requested.
 }
 
 function get_plugin_root_id(): string {
@@ -818,52 +886,57 @@ function get_plugin_root_id(): string {
   if (root_id.byteLength == 0) {
     return "";
   }
-  return UTF8.decode(root_id);
+  return String.UTF8.decode(root_id);
 }
 
-let root_context_map = new Map<u32, RootContext>();
+let context_map = new Map<u32, BaseContext>();
 export function ensureRootContext(root_context_id: u32): RootContext {
-  if (root_context_map.has(root_context_id)) {
-    return root_context_map.get(root_context_id);
+  if (context_map.has(root_context_id)) {
+    return getRootContext(root_context_id);
   }
   let root_id = get_plugin_root_id();
   if (root_factory.has(root_id)) {
     let root_context_func = root_factory.get(root_id);
     let root_context = root_context_func();
-    root_context_map.set(root_context_id, root_context);
-
+    root_context.context_id = root_context_id;
+    context_map.set(root_context_id, root_context);
+    
     log(LogLevelValues.warn, "returning context for " + root_id);
     return root_context;
   }
-
+  
   log(LogLevelValues.warn, "did not find root id " + root_id)
-
+  
   let root_context = new RootContext();
-  root_context_map.set(root_context_id, root_context);
+  root_context.context_id = root_context_id;
+  context_map.set(root_context_id, root_context);
   return root_context;
 }
 
 let root_factory = new Map<string, () => RootContext>();
-let context_map = new Map<u32, Context>();
+//let context_map = new Map<u32, Context>();
 
-export function getContext(context_id: u32): Context {
+export function getBaseContext(context_id: u32): BaseContext {
   return context_map.get(context_id);
+}
+export function getContext(context_id: u32): Context {
+  return context_map.get(context_id) as Context;
 }
 export function deleteContext(context_id: u32): void {
   context_map.delete(context_id);
 }
 export function getRootContext(context_id: u32): RootContext {
-  return root_context_map.get(context_id);
+  return context_map.get(context_id) as RootContext;
 }
 
-export function ensureContext(context_id: u32, root_context_id: u32): Context {
+export function ensureContext(context_id: u32, root_context_id: u32): void {
   if (context_map.has(context_id)) {
-    return context_map.get(context_id);
+    return;
   }
-  let root_context = root_context_map.get(root_context_id);
+  let root_context = getRootContext(root_context_id);
   let context = root_context.createContext_(root_context);
+  context.context_id = context_id;
   context_map.set(context_id, context);
-  return context;
 }
 
 let context_factory = new Map<string, (r: RootContext) => Context>();
@@ -883,6 +956,7 @@ export class RootContextHelper<T extends RootContext> extends RootContext {
     this.onDone_ = (thiz: RootContext) => { return (thiz as RootContextHelper<T>).that.onDone(); };
     this.done_ = (thiz: RootContext) => { (thiz as RootContextHelper<T>).that.done(); };
     this.createContext_ = (thiz: RootContext) => { return (thiz as RootContextHelper<T>).that.createContext(); };
+    this.onDelete_ = (thiz: BaseContext) => { (thiz as RootContextHelper<T>).that.onDelete(); }
   }
 }
 
@@ -908,9 +982,9 @@ export class ContextHelper<T extends Context> extends Context {
     this.onResponseMetadata_ = (thiz: Context, a: u32) => { return (thiz as ContextHelper<T>).that.onResponseMetadata(a); }
     this.onResponseBody_ = (thiz: Context, body_buffer_length: size_t, end_of_stream: bool) => { return (thiz as ContextHelper<T>).that.onResponseBody(body_buffer_length, end_of_stream); }
     this.onResponseTrailers_ = (thiz: Context, s: u32) => { return (thiz as ContextHelper<T>).that.onResponseTrailers(s); }
-    this.onDone_ = (thiz: Context) => { (thiz as ContextHelper<T>).that.onDone(); }
+    this.onDone_ = (thiz: BaseContext) => { return (thiz as ContextHelper<T>).that.onDone(); }
     this.onLog_ = (thiz: Context) => { (thiz as ContextHelper<T>).that.onLog(); }
-    this.onDelete_ = (thiz: Context) => { (thiz as ContextHelper<T>).that.onDelete(); }
+    this.onDelete_ = (thiz: BaseContext) => { (thiz as ContextHelper<T>).that.onDelete(); }
   }
 }
 
