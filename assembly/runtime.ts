@@ -828,7 +828,6 @@ export class RootContext extends BaseContext {
 }
 
 export class Context extends BaseContext{
-  root_context: RootContext;
 
   onNewConnection_: (thiz: Context) => FilterStatusValues;
   onDownstreamData_: (thiz: Context, size: size_t, end: bool) => FilterStatusValues;
@@ -936,7 +935,6 @@ export function ensureContext(context_id: u32, root_context_id: u32): void {
   let root_context = getRootContext(root_context_id);
   let context = root_context.createContext_(root_context);
   context.context_id = context_id;
-  context.root_context = root_context;
   context_map.set(context_id, context);
 }
 

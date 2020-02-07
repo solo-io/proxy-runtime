@@ -35,22 +35,27 @@ class AddHeaderRoot extends RootContext {
 
   onConfigure(): bool {
     let conf_buffer = super.getConfiguration();
-    let configuration = String.UTF8.decode(conf_buffer);
+    let result = String.UTF8.decode(conf_buffer);
+    this.configuration = result;
     return true;
   }
 
 
   createContext(): Context {
-    return ContextHelper.wrap(new AddHeader());
+    return ContextHelper.wrap(new AddHeader(this));
   }
 }
 
 class AddHeader extends Context {
+  root_context : AddHeaderRoot;
+  constructor(root_context:AddHeaderRoot){
+    super();
+    this.root_context = root_context;
+  }
   onResponseHeaders(a: u32): FilterHeadersStatusValues {
-    const root_context = super.root_context as AddHeaderRoot;
+    const root_context = this.root_context;
     if (root_context.configuration == "") {
       stream_context.headers.response.add("hello", "world!");
-      
     } else {
       stream_context.headers.response.add("hello", root_context.configuration);
     }
