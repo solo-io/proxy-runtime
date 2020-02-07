@@ -16,7 +16,7 @@ add `--use abort=abort_proc_exit` to the `asc` in packages.json. for example:
     "asbuild:optimized": "asc assembly/index.ts -b build/optimized.wasm --use abort=abort_proc_exit -t build/optimized.wat --sourceMap --validate --optimize",
 ```
 
-Add `"@solo-io/envoy": "file:/home/yuval/Projects/solo/envoy-assemblyscript"` to your dependencies.
+Add `"@solo-io/proxy": "file:/home/yuval/Projects/solo/proxy-assemblyscript"` to your dependencies.
 run `npm install`
 
 # using NPM
@@ -27,8 +27,8 @@ run `npm install`
 Copy this into assembly/index.ts:
 
 ```ts
-export * from "@solo-io/envoy/proxy";
-import { RootContext, Context, RootContextHelper, ContextHelper, registerRootContext, FilterHeadersStatusValues, stream_context } from "@solo-io/envoy";
+export * from "@solo-io/proxy/proxy";
+import { RootContext, Context, RootContextHelper, ContextHelper, registerRootContext, FilterHeadersStatusValues, stream_context } from "@solo-io/proxy";
 
 class AddHeaderRoot extends RootContext {
   configuration : string;

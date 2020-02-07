@@ -4,7 +4,7 @@
     "asbuild:optimized": "asc assembly/index.ts -b build/optimized.wasm --use abort=abort_proc_exit -t build/optimized.wat --sourceMap --validate --optimize",
     "asbuild": "npm run asbuild:untouched && npm run asbuild:optimized",
     "server": "ws --log.format dev",
-    "docs": "typedoc --out ./docs assembly --ignoreCompilerErrors"
+    "docs": "typedoc --out ./docs assembly --ignoreCompilerErrors --name 'AssemblyScript Proxy Runtime'"
   },
   "devDependencies": {
     "assemblyscript": "^0.9.1",

@@ -79,17 +79,12 @@ let globalU32Ref = new Reference<u32>();
 let globalU64Ref = new Reference<u64>();
 let globalUsizeRef = new Reference<usize>();
 
-class WasmData {
-  data: ArrayBuffer;
-  constructor() { }
-}
-
-class HeaderPair {
+export class HeaderPair {
   key: ArrayBuffer;
   value: ArrayBuffer;
 }
 
-type Headers = Array<HeaderPair>;
+export type Headers = Array<HeaderPair>;
 
 
 export enum LogLevelValues { trace, debug, info, warn, error, critical };
@@ -585,7 +580,7 @@ class Metric {
   }
 }
 
-class Gauge extends Metric {
+export class Gauge extends Metric {
   metric_id : u32;
   
   constructor(name: string) {
@@ -600,7 +595,7 @@ class Gauge extends Metric {
   }
 }
 
-class Historgram extends Metric {
+export class Histogram extends Metric {
   metric_id : u32;
   
   constructor(name: string) {
@@ -615,7 +610,7 @@ class Historgram extends Metric {
   }
 }
 
-class Counter extends Metric {
+export class Counter extends Metric {
   metric_id : u32;
   
   constructor(name: string) {
@@ -757,7 +752,7 @@ export class RootContext extends BaseContext {
     for (let i = 0; i < keys.length; ++i) {
       let key = keys[i];
       // TODO cancel pending http requests and call callbacks with failure.?
-      // when it becomes possible in envoy.
+      // when it becomes possible in the proxy.
     }
     this.http_calls_.clear()
   }
@@ -938,7 +933,6 @@ export function ensureContext(context_id: u32, root_context_id: u32): void {
   context_map.set(context_id, context);
 }
 
-let context_factory = new Map<string, (r: RootContext) => Context>();
 
 export class RootContextHelper<T extends RootContext> extends RootContext {
   static wrap<T extends RootContext>(that: T): RootContext {
