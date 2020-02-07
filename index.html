@@ -51,16 +51,15 @@
 
 <body>
   <h1>
-    <a href="https://en.wikipedia.org/wiki/Conway's_Game_of_Life">Conway's Game of Life</a> in
-    <a href="http://assemblyscript.org">AssemblyScript</a>
-    ( <a
-      href="https://github.com/AssemblyScript/assemblyscript/blob/master/examples/game-of-life/assembly/index.ts">source</a>
-    )
+    Test wasm filters in the browser!
   </h1>
+  <input type="text" id="rootid" placeholder="root id" />
+  <textarea id="filterconfig"></textarea>
+  <input type="text" id="result" placeholder="result" />
+
   <script>"use strict";
 
     const byteSize = 100000;
-    var globalModule;
     var globalExports;
 
     function copystr(value, value_ptr_ptr, value_size_ptr) { 
@@ -71,7 +70,7 @@
         throw "can't allocate";
       }
 
-      var moduleMemory = globalModule.instance.exports.memory.buffer;
+      var moduleMemory = globalExports.memory.buffer;
 
       var confMem = new Uint8Array(moduleMemory, bytes, value_size);
       for(let i = 0; i < value_size; i++){
@@ -90,8 +89,7 @@
     var memory = new WebAssembly.Memory({ initial: ((byteSize + 0xffff) & ~0xffff) >>> 16 });
     const utf8Decoder = new TextDecoder('utf-8');
     const filter_config = "fffff";
-    async function main() {
-
+    async function initModule(root_id_string, config) {
       try {
         // Fetch and instantiate the module
         // instantiateStreaming so that source map is fetched automatically.
@@ -108,7 +106,7 @@
               throw new Error("proc exit");
             },
             proxy_log(level, logMessage, messageSize) {
-              var mem = new Uint8Array(globalModule.instance.exports.memory.buffer);
+              var mem = new Uint8Array(globalExports.memory.buffer);
               let buf = mem.slice(logMessage, logMessage + messageSize);
               let msg = String.fromCharCode.apply(null, buf);
               msg = utf8Decoder.decode(buf);
@@ -117,7 +115,7 @@
             },
             proxy_get_configuration(configuration_ptr, configuration_size) {
               // get memory:
-              copystr(filter_config, configuration_ptr, configuration_size);
+              copystr(config, configuration_ptr, configuration_size);
               console.info("configuration_ptr index.ts:" + configuration_ptr + ":" + configuration_size);
             },
             proxy_get_status(status_code_ptr, message_ptr, message_size) { return 0; },
@@ -125,7 +123,7 @@
             proxy_get_current_time_nanoseconds(nanoseconds) { return 0; },
             proxy_get_property(path_ptr, path_size, value_ptr_ptr, value_size_ptr) { 
               // we only support one property now, the root id.
-              const prop = "add_header";
+              const prop = root_id_string;
               copystr(prop, value_ptr_ptr, value_size_ptr);
               console.info("proxy_get_property index.ts:" + value_ptr_ptr + ":" + value_size_ptr);
 
@@ -169,16 +167,7 @@
 
           }
         });
-
-        globalModule = wasmmodule;
-        var exports = wasmmodule.instance.exports;
-        globalExports = exports;
-        var next_context_id = 1;
-        let root_id = next_context_id++;
-        exports.proxy_on_context_create(root_id, 0);
-        exports.proxy_on_vm_start(root_id, 0);
-        // Initialize the filter
-        exports.proxy_on_configure(root_id, filter_config.length);
+        return wasmmodule;
 
       } catch (err) {
         alert("Failed to load WASM: " + err.message + " (ad blocker, maybe?)");
@@ -188,9 +177,22 @@
 
     } //main
 
-    main();
 
+    async function run(root_id_string, config){
+      const wasmmodule = await initModule(root_id_string, config);
+        var exports = wasmmodule.instance.exports;
+        globalExports = exports;
+        var next_context_id = 1;
+        let root_id = next_context_id++;
+        exports.proxy_on_context_create(root_id, 0);
+        exports.proxy_on_vm_start(root_id, 0);
+        // Initialize the filter
+        let result = exports.proxy_on_configure(root_id, config.length);
+        document.getElementById("result").value =  result.toString();
+    }
   </script>
+  <button onclick="run(document.getElementById('rootid').value, document.getElementById('filterconfig').value)">run</button>
+
 </body>
 
 </html>

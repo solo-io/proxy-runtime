@@ -40,7 +40,6 @@ class AddHeaderRoot extends RootContext {
     return true;
   }
 
-
   createContext(): Context {
     return ContextHelper.wrap(new AddHeader(this));
   }
