@@ -61,7 +61,6 @@ class ArrayBufferReference {
   // Before calling toArrayBuffer below, you must call out to the host to fill in the values.
   // toArrayBuffer below **must** be called once and only once.
   toArrayBuffer(): ArrayBuffer {
-
     if (this.size == 0) {
       return new ArrayBuffer(0);
     }
@@ -720,6 +719,7 @@ export class RootContext extends BaseContext {
   onTick_: (thiz: RootContext) => void;
   done_: (thiz: RootContext) => void;
   createContext_: (thiz: RootContext) => Context;
+  onQueueReady_: (thiz: RootContext, token:u32) => void;
 
   private http_calls_: Map<u32, HttpCallback>;
   private grpc_calls_: Map<u32, GrpcCallback>;
@@ -729,9 +729,10 @@ export class RootContext extends BaseContext {
     this.http_calls_ = new Map();
     this.grpc_calls_ = new Map();
     this.validateConfiguration_ = (thiz: RootContext, configuration_size: size_t) => { return thiz.validateConfiguration(configuration_size); };
-    this.onConfigure_ = (thiz: RootContext, configuration_size: size_t) => { return thiz.onConfigure(configuration_size); };
+    this.onConfigure_ = (thiz: RootContext, configuration_size: size_t) => { return thiz.onConfigure(); };
     this.onStart_ = (thiz: RootContext, vm_configuration_size: size_t) => { return thiz.onStart(vm_configuration_size); };
     this.onTick_ = (thiz: RootContext) => { thiz.onTick(); };
+    this.onQueueReady_ = (thiz: RootContext, token:u32) => { thiz.onQueueReady(token); };
     this.createContext_ = (thiz: RootContext) => { return thiz.createContext(); };
     this.onDone_ = (thiz: BaseContext) => { return (thiz as RootContext).onDone(); };
 
@@ -744,8 +745,6 @@ export class RootContext extends BaseContext {
   getConfiguration(): ArrayBuffer {
     CHECK_RESULT(imports.proxy_get_configuration(globalArrayBufferReference.bufferPtr(), globalArrayBufferReference.sizePtr()));
     let array = globalArrayBufferReference.toArrayBuffer();
-
-    log(LogLevelValues.debug, String.UTF8.decode(array));
     return array;
   }
 
@@ -767,7 +766,7 @@ export class RootContext extends BaseContext {
   validateConfiguration(configuration_sizeconfiguration_size: size_t): bool { return true; }
   // Called once when the VM loads and once when each hook loads and whenever configuration changes.
   // Returns false if the configuration is invalid.
-  onConfigure(configuration_size: size_t): bool { return true; }
+  onConfigure(): bool { return true; }
   // Called when each hook loads.  Returns false if the configuration is invalid.
   onStart(vm_configuration_size: size_t): bool { return true; }
   // Called when the timer goes off.
@@ -828,7 +827,7 @@ export class RootContext extends BaseContext {
 }
 
 export class Context extends BaseContext{
-  readonly root_context: RootContext;
+  root_context: RootContext;
 
   onNewConnection_: (thiz: Context) => FilterStatusValues;
   onDownstreamData_: (thiz: Context, size: size_t, end: bool) => FilterStatusValues;
@@ -936,6 +935,7 @@ export function ensureContext(context_id: u32, root_context_id: u32): void {
   let root_context = getRootContext(root_context_id);
   let context = root_context.createContext_(root_context);
   context.context_id = context_id;
+  context.root_context = root_context;
   context_map.set(context_id, context);
 }
 
@@ -950,9 +950,10 @@ export class RootContextHelper<T extends RootContext> extends RootContext {
     super();
     // OOP HACK
     this.validateConfiguration_ = (thiz: RootContext, configuration_size: size_t) => { return (thiz as RootContextHelper<T>).that.validateConfiguration(configuration_size); };
-    this.onConfigure_ = (thiz: RootContext, configuration_size: size_t) => { return (thiz as RootContextHelper<T>).that.onConfigure(configuration_size); };
+    this.onConfigure_ = (thiz: RootContext, configuration_size: size_t) => { return (thiz as RootContextHelper<T>).that.onConfigure(); };
     this.onStart_ = (thiz: RootContext, vm_configuration_size: size_t) => { return (thiz as RootContextHelper<T>).that.onStart(vm_configuration_size); };
     this.onTick_ = (thiz: RootContext) => { (thiz as RootContextHelper<T>).that.onTick(); };
+    this.onQueueReady_ = (thiz: RootContext, token:u32) => { (thiz as RootContextHelper<T>).that.onQueueReady(token); };
     this.onDone_ = (thiz: BaseContext) => { return (thiz as RootContextHelper<T>).that.onDone(); };
     this.done_ = (thiz: RootContext) => { (thiz as RootContextHelper<T>).that.done(); };
     this.createContext_ = (thiz: RootContext) => { return (thiz as RootContextHelper<T>).that.createContext(); };

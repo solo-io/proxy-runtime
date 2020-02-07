@@ -63,10 +63,31 @@
     const byteSize = 100000;
     var globalModule;
     var globalExports;
+
+    function copystr(value, value_ptr_ptr, value_size_ptr) { 
+      // we only support one property now, the root id.
+      const value_size = value.length;
+      let bytes = globalExports.malloc(value_size);
+      if (bytes === 0) {
+        throw "can't allocate";
+      }
+
+      var moduleMemory = globalModule.instance.exports.memory.buffer;
+
+      var confMem = new Uint8Array(moduleMemory, bytes, value_size);
+      for(let i = 0; i < value_size; i++){
+        confMem[i]=value.charCodeAt(i);
+      }
+
+      var confPtr = new Uint32Array(moduleMemory, value_ptr_ptr, 1);
+      confPtr[0] = bytes;
+      var confSizePtr = new Uint32Array(moduleMemory, value_size_ptr, 1);
+      confSizePtr[0] = value_size;
+    }
     // Compute the size of and instantiate the module's memory
     var memory = new WebAssembly.Memory({ initial: ((byteSize + 0xffff) & ~0xffff) >>> 16 });
     const utf8Decoder = new TextDecoder('utf-8');
-
+    const filter_config = "fffff";
     async function main() {
 
       try {
@@ -95,32 +116,20 @@
             },
             proxy_get_configuration(configuration_ptr, configuration_size) {
               // get memory:
-              const conf_size = 5;
-              let bytes = globalExports.malloc(conf_size);
-              if (bytes === 0) {
-                throw "can't allocate";
-              }
-
-              var moduleMemory = globalModule.instance.exports.memory.buffer;
-
-              var confMem = new Uint8Array(moduleMemory, bytes, conf_size);
-              confMem[0] = 'y'.charCodeAt(0);
-              confMem[1] = 'v'.charCodeAt(0);
-              confMem[2] = 'u'.charCodeAt(0);
-              confMem[3] = 'a'.charCodeAt(0);
-              confMem[4] = 'l'.charCodeAt(0);
-
-              var confPtr = new Uint32Array(moduleMemory, configuration_ptr, 1);
-              confPtr[0] = bytes;
-              var confSizePtr = new Uint32Array(moduleMemory, configuration_size, 1);
-              confSizePtr[0] = conf_size;
-
+              copystr(filter_config, configuration_ptr, configuration_size);
               console.info("configuration_ptr index.ts:" + configuration_ptr + ":" + configuration_size);
             },
             proxy_get_status(status_code_ptr, message_ptr, message_size) { return 0; },
             proxy_set_tick_period_milliseconds(millisecond) { return 0; },
             proxy_get_current_time_nanoseconds(nanoseconds) { return 0; },
-            proxy_get_property(path_ptr, path_size, value_ptr_ptr, value_size_ptr) { return 0; },
+            proxy_get_property(path_ptr, path_size, value_ptr_ptr, value_size_ptr) { 
+              // we only support one property now, the root id.
+              const prop = "add_header";
+              copystr(prop, value_ptr_ptr, value_size_ptr);
+              console.info("proxy_get_property index.ts:" + value_ptr_ptr + ":" + value_size_ptr);
+
+              return 0;
+            },
             proxy_set_property(path_ptr, path_size, value_ptr, value_size) { return 0; },
             proxy_continue_request() { return 0; },
             proxy_continue_response() { return 0; },
@@ -163,9 +172,12 @@
         globalModule = wasmmodule;
         var exports = wasmmodule.instance.exports;
         globalExports = exports;
-
+        var next_context_id = 1;
+        let root_id = next_context_id++;
+        exports.proxy_on_context_create(root_id, 0);
+        exports.proxy_on_vm_start(root_id, 0);
         // Initialize the filter
-        exports.get_configuration();
+        exports.proxy_on_configure(root_id, filter_config.length);
 
       } catch (err) {
         alert("Failed to load WASM: " + err.message + " (ad blocker, maybe?)");

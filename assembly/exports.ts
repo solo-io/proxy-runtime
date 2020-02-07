@@ -11,23 +11,29 @@ type WasmOnDoneResult = u32;
 
 // Calls in.
 export function proxy_on_vm_start(root_context_id: u32, configuration_size: u32): u32 {
-  return getRootContext(root_context_id).onStart(configuration_size) ? 1 : 0;
+  let root_context = getRootContext(root_context_id);
+  return root_context.onStart_(root_context, configuration_size) ? 1 : 0;
 }
 export function proxy_on_start(root_context_id: u32, vm_configuration_size: u32): u32 {
   ensureRootContext(root_context_id);
-  return getRootContext(root_context_id).onStart(vm_configuration_size) ? 1 : 0;
+  let root_context = getRootContext(root_context_id);
+  return root_context.onStart_(root_context, vm_configuration_size) ? 1 : 0;
 }
 export function proxy_validate_configuration(root_context_id: u32, configuration_size: u32): u32 {
-  return getRootContext(root_context_id).validateConfiguration(configuration_size) ? 1 : 0;
+  let root_context = getRootContext(root_context_id);
+  return root_context.validateConfiguration_(root_context, configuration_size) ? 1 : 0;
 }
 export function proxy_on_configure(root_context_id: u32, configuration_size: u32): u32 {
-  return getRootContext(root_context_id).onConfigure(configuration_size) ? 1 : 0;
+  let root_context = getRootContext(root_context_id);
+  return root_context.onConfigure_(root_context, configuration_size) ? 1 : 0;
 }
 export function proxy_on_tick(root_context_id: u32): void {
-  getRootContext(root_context_id).onTick();
+  let root_context = getRootContext(root_context_id);
+  root_context.onTick_(root_context);
 }
 export function proxy_on_queue_ready(root_context_id: u32, token: u32): void {
-  getRootContext(root_context_id).onQueueReady(token);
+  let root_context = getRootContext(root_context_id);
+  root_context.onQueueReady_(root_context, token);
 }
 
 // Stream calls.
@@ -98,12 +104,9 @@ export function proxy_on_grpc_close(context_id: u32, token: u32, status_code: u3
 
 // The stream/vm has completed.
 
-export function proxy_on_done(context_id: u32): WasmOnDoneResult {
+export function proxy_on_done(context_id: u32): u32 {
   let ctx = getBaseContext(context_id);
-  if (ctx.onDone_(ctx)){
-    return 0;
-  }
-  return 1;
+  return ctx.onDone_(ctx) ? 1 : 0;
 }
 
 // proxy_on_log occurs after proxy_on_done.

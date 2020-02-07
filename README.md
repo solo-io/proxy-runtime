@@ -27,15 +27,15 @@ run `npm install`
 Copy this into assembly/index.ts:
 
 ```ts
-export * from "@solo-io/envoy";
-import { RootContext, Context, RootContextHelper, ContextHelper, registerRootContext, FilterHeadersStatusValues, HeaderMapTypeValues, stream_context } from "@solo-io/envoy/runtime";
+export * from "@solo-io/envoy/proxy";
+import { RootContext, Context, RootContextHelper, ContextHelper, registerRootContext, FilterHeadersStatusValues, stream_context } from "@solo-io/envoy";
 
 class AddHeaderRoot extends RootContext {
   configuration : string;
 
-  onConfigure(configuration_size: size_t): bool {
-    let conf_buffer = this.getConfiguration();
-    configuration = String.UTF8.decode(conf_buffer);
+  onConfigure(): bool {
+    let conf_buffer = super.getConfiguration();
+    let configuration = String.UTF8.decode(conf_buffer);
     return true;
   }
 
@@ -47,9 +47,10 @@ class AddHeaderRoot extends RootContext {
 
 class AddHeader extends Context {
   onResponseHeaders(a: u32): FilterHeadersStatusValues {
-    const root_context = this.root_context as AddHeaderRoot;
+    const root_context = super.root_context as AddHeaderRoot;
     if (root_context.configuration == "") {
       stream_context.headers.response.add("hello", "world!");
+      
     } else {
       stream_context.headers.response.add("hello", root_context.configuration);
     }
