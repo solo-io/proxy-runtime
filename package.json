@@ -3,12 +3,13 @@
     "asbuild:untouched": "asc assembly/index.ts -b build/untouched.wasm --use abort=abort_proc_exit -t build/untouched.wat --sourceMap http://127.0.0.1:8081/build/untouched.wasm.map --validate --debug",
     "asbuild:optimized": "asc assembly/index.ts -b build/optimized.wasm --use abort=abort_proc_exit -t build/optimized.wat --sourceMap --validate --optimize",
     "asbuild": "npm run asbuild:untouched && npm run asbuild:optimized",
-    "server": "http-server . -o -c-1",
-    "docs" : "typedoc --out ./docs assembly --ignoreCompilerErrors"
+    "server": "ws --log.format dev",
+    "docs": "typedoc --out ./docs assembly --ignoreCompilerErrors"
   },
   "devDependencies": {
     "assemblyscript": "^0.9.1",
     "http-server": "^0.11.1",
+    "local-web-server": "^3.0.7",
     "typedoc": "^0.16.9"
   }
 }

@@ -69,7 +69,8 @@ class ArrayBufferReference {
     // host code used malloc to allocate this buffer.
     // release the allocated ptr. array variable will retain it, so it won't be actually free (as it is ref counted).
     free(this.buffer);
-    return array.slice(0, this.size);
+    // should we return a this sliced up to size?
+    return array;
   }
 }
 
@@ -948,6 +949,7 @@ export class RootContextHelper<T extends RootContext> extends RootContext {
   that: T;
   constructor(that: T) {
     super();
+    this.that = that;
     // OOP HACK
     this.validateConfiguration_ = (thiz: RootContext, configuration_size: size_t) => { return (thiz as RootContextHelper<T>).that.validateConfiguration(configuration_size); };
     this.onConfigure_ = (thiz: RootContext, configuration_size: size_t) => { return (thiz as RootContextHelper<T>).that.onConfigure(); };
@@ -969,6 +971,7 @@ export class ContextHelper<T extends Context> extends Context {
   that: T;
   constructor(that: T) {
     super();
+    this.that = that;
     // OOP HACK - till asm script supports proper oop we have to do this
     this.onNewConnection_ = (thiz: Context) => { return (thiz as ContextHelper<T>).that.onNewConnection(); }
     this.onDownstreamData_ = (thiz: Context, size: size_t, end: bool) => { return (thiz as ContextHelper<T>).that.onDownstreamData(size, end); }

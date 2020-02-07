@@ -2,7 +2,7 @@
 <html>
 
 <head>
-  <title>Conway's Game of Life - AssemblyScript</title>
+  <title>Test proxy abi - AssemblyScript</title>
   <link rel="icon" href="https://assemblyscript.org/favicon.ico" type="image/x-icon" />
   <meta name="viewport" content="user-scalable=0" />
   <style>
@@ -57,7 +57,6 @@
       href="https://github.com/AssemblyScript/assemblyscript/blob/master/examples/game-of-life/assembly/index.ts">source</a>
     )
   </h1>
-  <div id="edge">Might be blurry because MS Edge does not support 'image-rendering: crisp-edges' (yet) :-(</div>
   <script>"use strict";
 
     const byteSize = 100000;
@@ -83,6 +82,9 @@
       confPtr[0] = bytes;
       var confSizePtr = new Uint32Array(moduleMemory, value_size_ptr, 1);
       confSizePtr[0] = value_size;
+
+      console.info("copystr wrote: " +confPtr[0]+ ":" +confSizePtr[0] + " to "+value_ptr_ptr + ":" + value_size_ptr);
+
     }
     // Compute the size of and instantiate the module's memory
     var memory = new WebAssembly.Memory({ initial: ((byteSize + 0xffff) & ~0xffff) >>> 16 });
@@ -92,9 +94,8 @@
 
       try {
         // Fetch and instantiate the module
-        const response = await fetch("/build/untouched.wasm");
-        const buffer = await response.arrayBuffer();
-        const wasmmodule = await WebAssembly.instantiate(buffer, {
+        // instantiateStreaming so that source map is fetched automatically.
+        const wasmmodule = await WebAssembly.instantiateStreaming(fetch("/build/untouched.wasm"), {
           wasi_unstable: {
             proc_exit(retval) {
               throw new Error("proc exit");
