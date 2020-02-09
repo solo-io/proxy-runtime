@@ -699,7 +699,9 @@ export abstract class BaseContext {
   onDelete(): void { } // Called when the VM is being torn down.
 }
 
-// We have to use a wrapper as asm script doesn't support closures just yet.
+/**
+ * Wrapper around http callbacks. when asm script supports callbacks, we can refactor \ remove this.
+ */
 class HttpCallback {
   ctx: Object;
   cb: (c: Object) => void;
