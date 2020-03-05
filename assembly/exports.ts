@@ -10,6 +10,8 @@ type GrpcStatus = i32;
 type WasmOnDoneResult = u32;
 
 // Calls in.
+export function proxy_abi_version_0_1_0(): void { }
+
 export function proxy_on_vm_start(root_context_id: u32, configuration_size: u32): u32 {
   let root_context = getRootContext(root_context_id);
   return root_context.onStart_(root_context, configuration_size) ? 1 : 0;
@@ -112,7 +114,7 @@ export function proxy_on_done(context_id: u32): u32 {
 // proxy_on_log occurs after proxy_on_done.
 export function proxy_on_log(context_id: u32): void {
   let ctx = getContext(context_id);
-  ctx.onLog_(ctx,);
+  ctx.onLog_(ctx);
 }
 // The Context in the proxy has been destroyed and no further calls will be coming.
 export function proxy_on_delete(context_id: u32): void {
