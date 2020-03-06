@@ -21,6 +21,8 @@ run `npm install`
 
 # using NPM
 
+Just include the `@solo-io/proxy-runtime` package.
+
 # Hello, World
 
 ## Code
