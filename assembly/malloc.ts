@@ -4,7 +4,7 @@ import {
 } from "rt/index-full";
 
 /// Allow host to allocate memory.
-export function malloc(size: usize): usize {
+export function malloc(size: i32): usize {
   let buffer = new ArrayBuffer(size);
   let ptr = changetype<usize>(buffer);
   return __retain(ptr);
