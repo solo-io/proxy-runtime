@@ -1,8 +1,8 @@
 build:
-  npm run asbuild
+	npm run asbuild
 
 publish:
-  npm publish
+	npm publish
 
 docs:
- npm run docs
+	npm run docs
