@@ -225,7 +225,7 @@ export function set_property(path: string, data: ArrayBuffer): WasmResultValues 
   return imports.proxy_set_property(changetype<usize>(buffer), buffer.byteLength, changetype<usize>(data), data.byteLength);
 }
 
-function pairsSize(headers: Headers): usize {
+function pairsSize(headers: Headers): i32 {
   let size = 4; // number of headers
   // for in loop doesn't seem to be supported..
   for (let i = 0; i < headers.length; i++) {
