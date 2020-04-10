@@ -231,7 +231,6 @@ export function set_property(path: string, data: ArrayBuffer): WasmResultValues 
 
 function pairsSize(headers: Headers): i32 {
   let size = 4; // number of headers
-  log(LogLevelValues.debug, "pairs" + headers.toString());
   // for in loop doesn't seem to be supported..
   for (let i = 0; i < headers.length; i++) {
     let header = headers[i];
@@ -244,7 +243,7 @@ function pairsSize(headers: Headers): i32 {
 
 function serializeHeaders(headers: Headers): ArrayBuffer {
   let result = new ArrayBuffer(pairsSize(headers));
-  let sizes = Uint32Array.wrap(result, 0, 1 + headers.length);
+  let sizes = Uint32Array.wrap(result, 0, 1 + 2 * headers.length);
   sizes[0] = headers.length;
 
   // header sizes:
@@ -267,15 +266,14 @@ function serializeHeaders(headers: Headers): ArrayBuffer {
     let header = headers[i];
     // i'm sure there's a better way to copy, i just don't know what it is :/
     let wrappedKey = Uint8Array.wrap(header.key);
-    let keyData = data.subarray(currentOffset, wrappedKey.byteLength);
+    let keyData = data.subarray(currentOffset, currentOffset + wrappedKey.byteLength);
     for (let i = 0; i < wrappedKey.byteLength; i++) {
       keyData[i] = wrappedKey[i];
     }
     currentOffset += wrappedKey.byteLength + 1; // + 1 for terminating nil
 
-
     let wrappedValue = Uint8Array.wrap(header.value);
-    let valueData = data.subarray(currentOffset, wrappedValue.byteLength);
+    let valueData = data.subarray(currentOffset, currentOffset + wrappedValue.byteLength);
     for (let i = 0; i < wrappedValue.byteLength; i++) {
       valueData[i] = wrappedValue[i];
     }
@@ -707,15 +705,6 @@ export abstract class BaseContext {
 /**
  * Wrapper around http callbacks. when asm script supports callbacks, we can refactor \ remove this.
  */
-export class HttpCallback {
-  context_id: u32;
-  cb: (context_id: u32) => void;
-  call(): void { this.cb(this.context_id); }
-  constructor(context_id: u32, cb: (context_id: u32) => void) {
-    this.context_id = context_id;
-    this.cb = cb;
-  }
-}
 class GrpcCallback {
   ctx: Object;
   cb: (c: Object) => void;
@@ -739,7 +728,7 @@ export class RootContext extends BaseContext {
   createContext_: (thiz: RootContext) => Context;
   onQueueReady_: (thiz: RootContext, token: u32) => void;
 
-  private http_calls_: Map<u32, HttpCallback>;
+  private http_calls_: Map<u32, (headers: u32,  body_size: usize, trailers: u32) => void>;
   private grpc_calls_: Map<u32, GrpcCallback>;
 
   constructor() {
@@ -807,15 +796,14 @@ export class RootContext extends BaseContext {
    * @param cb Callback to be invoked when the request is complete.
    */
   httpCall(cluster: string, headers: Headers, body: ArrayBuffer, trailers: Headers,
-    timeout_milliseconds: u32, cb: HttpCallback): WasmResultValues {
+    timeout_milliseconds: u32, cb: (headers: u32,  body_size: usize, trailers: u32) => void): WasmResultValues {
 
-    log(LogLevelValues.debug, "trying to execute an httpCall with non converted: " + cluster + ":" + headers.toString() + ":" + body.toString() + ":" + trailers.toString() + ":" + timeout_milliseconds.toString() + ":" + cb.context_id.toString());
     let buffer = String.UTF8.encode(cluster);
     let header_pairs = serializeHeaders(headers);
     let trailer_pairs = serializeHeaders(trailers);
     let token = new Reference<u32>();
-    log(LogLevelValues.debug, "trying to execute an httpCall with: " + changetype<usize>(buffer).toString());
     let result = imports.proxy_http_call(changetype<usize>(buffer), buffer.byteLength, changetype<usize>(header_pairs), header_pairs.byteLength, changetype<usize>(body), body.byteLength, changetype<usize>(trailer_pairs), trailer_pairs.byteLength, timeout_milliseconds, token.ptr());
+    log(LogLevelValues.debug, "result: " + result.toString());
     if (result == WasmResultValues.Ok) {
       this.http_calls_.set(token.data, cb);
     }
@@ -826,7 +814,7 @@ export class RootContext extends BaseContext {
     if (this.http_calls_.has(token)) {
       let callback = this.http_calls_.get(token);
       this.http_calls_.delete(token);
-      callback.call();
+      callback(headers, body_size, trailers);
     }
   }
   on_grpc_create_initial_metadata(token: u32, headers: u32): void { }
