@@ -36,7 +36,7 @@ function CHECK_RESULT(c: imports.WasmResult): void {
 
 /////////////// Access helpers
 
-class Reference<T> {
+export class Reference<T> {
   data: T;
 
   ptr(): usize {
@@ -82,6 +82,10 @@ let globalUsizeRef = new Reference<usize>();
 export class HeaderPair {
   key: ArrayBuffer;
   value: ArrayBuffer;
+
+  toString() : string {
+    return this.key.toString() + ":" + this.value.toString();
+  }
 }
 
 export type Headers = Array<HeaderPair>;
@@ -227,6 +231,7 @@ export function set_property(path: string, data: ArrayBuffer): WasmResultValues 
 
 function pairsSize(headers: Headers): i32 {
   let size = 4; // number of headers
+  log(LogLevelValues.debug, "pairs" + headers.toString());
   // for in loop doesn't seem to be supported..
   for (let i = 0; i < headers.length; i++) {
     let header = headers[i];
@@ -288,7 +293,7 @@ function deserializeHeaders(headers: ArrayBuffer): Headers {
   let sizeIndex = 0;
   let dataIndex = 0;
   // for in loop doesn't seem to be supported..
-  for (let i = 0; i < numheaders; i++) {
+  for (let i:u32 = 0; i < numheaders; i++) {
     let keySize = sizes[sizeIndex];
     sizeIndex++;
     let header_key_data = data.slice(dataIndex, dataIndex + keySize);
@@ -702,12 +707,12 @@ export abstract class BaseContext {
 /**
  * Wrapper around http callbacks. when asm script supports callbacks, we can refactor \ remove this.
  */
-class HttpCallback {
-  ctx: Object;
-  cb: (c: Object) => void;
-  call(): void { this.cb(this.ctx); }
-  constructor(ctx: Object, cb: (c: Context) => void) {
-    this.ctx = ctx;
+export class HttpCallback {
+  context_id: u32;
+  cb: (context_id: u32) => void;
+  call(): void { this.cb(this.context_id); }
+  constructor(context_id: u32, cb: (context_id: u32) => void) {
+    this.context_id = context_id;
     this.cb = cb;
   }
 }
@@ -804,10 +809,12 @@ export class RootContext extends BaseContext {
   httpCall(cluster: string, headers: Headers, body: ArrayBuffer, trailers: Headers,
     timeout_milliseconds: u32, cb: HttpCallback): WasmResultValues {
 
+    log(LogLevelValues.debug, "trying to execute an httpCall with non converted: " + cluster + ":" + headers.toString() + ":" + body.toString() + ":" + trailers.toString() + ":" + timeout_milliseconds.toString() + ":" + cb.context_id.toString());
     let buffer = String.UTF8.encode(cluster);
     let header_pairs = serializeHeaders(headers);
     let trailer_pairs = serializeHeaders(trailers);
-    let token = globalU32Ref;
+    let token = new Reference<u32>();
+    log(LogLevelValues.debug, "trying to execute an httpCall with: " + changetype<usize>(buffer).toString());
     let result = imports.proxy_http_call(changetype<usize>(buffer), buffer.byteLength, changetype<usize>(header_pairs), header_pairs.byteLength, changetype<usize>(body), body.byteLength, changetype<usize>(trailer_pairs), trailer_pairs.byteLength, timeout_milliseconds, token.ptr());
     if (result == WasmResultValues.Ok) {
       this.http_calls_.set(token.data, cb);
@@ -815,6 +822,7 @@ export class RootContext extends BaseContext {
     return result;
   }
   onHttpCallResponse(token: u32, headers: u32, body_size: u32, trailers: u32): void {
+    log(LogLevelValues.debug, "onHttpCallResponse: " + token.toString() + ", " + headers.toString() + ", " + body_size.toString() + ", " + trailers.toString())
     if (this.http_calls_.has(token)) {
       let callback = this.http_calls_.get(token);
       this.http_calls_.delete(token);

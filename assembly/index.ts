@@ -7,5 +7,5 @@ export {
     FilterTrailersStatusValues,
     FilterDataStatusValues, stream_context,
     HeaderPair, Headers, 
-    Gauge, Histogram, Counter
+    Gauge, Histogram, Counter, HttpCallback, log, Reference
 } from "./runtime";
