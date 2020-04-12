@@ -1,5 +1,5 @@
 export {
-    RootContext, Context, RootContextHelper, ContextHelper, registerRootContext,
+    BaseContext, RootContext, Context, RootContextHelper, ContextHelper, registerRootContext,
     LogLevelValues, WasmResultValues,
     FilterStatusValues,
     FilterHeadersStatusValues,
@@ -7,5 +7,5 @@ export {
     FilterTrailersStatusValues,
     FilterDataStatusValues, stream_context,
     HeaderPair, Headers, 
-    Gauge, Histogram, Counter, log
+    Gauge, Histogram, Counter, log, HttpCallback
 } from "./runtime";

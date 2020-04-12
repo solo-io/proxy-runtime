@@ -1,11 +1,7 @@
 // import {LogLevel, WasmResult, MetricType, PeerType, HeaderMapType, BufferType, BufferFlags} from "./exports";
 import * as imports from "./imports";
 import { free } from "./malloc";
-
-import {
-  proc_exit,
-} from "bindings/wasi_unstable";
-
+import { proc_exit } from "bindings/wasi_unstable";
 
 // abort function.
 // use with:
@@ -13,19 +9,17 @@ import {
 // compiler flag
 // @ts-ignore: decorator
 @global
-export function abort_proc_exit(
-  message: string | null,
-  fileName: string | null,
-  lineNumber: u32,
-  columnNumber: u32
-): void {
-
+export function abort_proc_exit(message: string | null, fileName: string | null, lineNumber: u32, columnNumber: u32): void {
+  let logMessage = "";
   if (message != null) {
-    log(LogLevelValues.critical, message.toString());
+    logMessage += message.toString();
   }
+  if (fileName != null) {
+    logMessage += " at: " + fileName.toString() + "(" + lineNumber.toString() + ":" + columnNumber.toString() + ")";
+  }
+  log(LogLevelValues.critical, logMessage);
   proc_exit(255);
 }
-type size_t = usize;
 
 function CHECK_RESULT(c: imports.WasmResult): void {
   if (c != WasmResultValues.Ok) {
@@ -680,7 +674,8 @@ export abstract class BaseContext {
   onDone_: (thiz: BaseContext) => bool;
   onDelete_: (thiz: BaseContext) => void;
 
-  constructor() {
+  constructor(context_id_: u32) {
+    this.context_id = context_id_;
     this.onDone_ = (thiz: BaseContext) => { return thiz.onDone(); };
     this.onDelete_ = (thiz: BaseContext) => { thiz.onDelete(); };
   }
@@ -688,23 +683,48 @@ export abstract class BaseContext {
   /**
    * Sets the effective context id to this context. this is useful for example if you receive an
    * http call in a RootContext, and want to modify headers based on the response in a regular 
-   * Context. You then will call `context.setEffectiveContext()` so that the header manipulation will
+   * Context. You then will call `setEffectiveContext(_id)` so that the header manipulation will
    * occur in the requerst context and not in the root context.
-   * the r
-   * @param effective_context_id 
+   * @param _id 
    */
-  setEffectiveContext(): WasmResultValues {
-    return imports.proxy_set_effective_context(this.context_id);
+  setEffectiveContext(_id: u32): WasmResultValues {
+    const result = imports.proxy_set_effective_context(_id);
+    if (result != WasmResultValues.Ok) {
+      log(LogLevelValues.critical, "Unable to set effective context: " + _id.toString() + " with result: "+ result.toString());
+    }
+    return result;
   }
 
-  // abstract createContext(context_id:u32):Context;
-  onDone(): bool { return true; } // Called when the VM is being torn down.
-  onDelete(): void { } // Called when the VM is being torn down.
+  continueRequest(): void {
+    const result = imports.proxy_continue_request();
+    if (result != WasmResultValues.Ok) {
+      log(LogLevelValues.critical, "Unable to continue request: " + result.toString());
+    }
+  }
+
+  // Called when the VM is being torn down.
+  onDone(): bool { 
+    log(LogLevelValues.debug, "context id: " + this.context_id.toString() + " : onDone()");
+    return true; 
+  }
+
+  // Called when the VM is being torn down.
+  onDelete(): void { 
+    log(LogLevelValues.debug, "context id: " + this.context_id.toString() + " : onDelete()");
+  } 
 }
 
 /**
  * Wrapper around http callbacks. when asm script supports callbacks, we can refactor \ remove this.
  */
+export class HttpCallback {
+  origin_context_id: u32;
+  cb: (origin_context_id: u32, headers: u32,  body_size: usize, trailers: u32) => void;
+  constructor(origin_context_id: u32, cb: (origin_context_id: u32, headers: u32,  body_size: usize, trailers: u32) => void) {
+    this.origin_context_id = origin_context_id;
+    this.cb = cb;
+  }
+}
 class GrpcCallback {
   ctx: Object;
   cb: (c: Object) => void;
@@ -720,45 +740,40 @@ class GrpcCallback {
  */
 export class RootContext extends BaseContext {
   // hack to workaround lack of OOP
-  validateConfiguration_: (thiz: RootContext, configuration_size: size_t) => bool;
-  onConfigure_: (thiz: RootContext, configuration_size: size_t) => bool;
-  onStart_: (thiz: RootContext, vm_configuration_size: size_t) => bool;
+  validateConfiguration_: (thiz: RootContext, configuration_size: usize) => bool;
+  onConfigure_: (thiz: RootContext, configuration_size: usize) => bool;
+  onStart_: (thiz: RootContext, vm_configuration_size: usize) => bool;
   onTick_: (thiz: RootContext) => void;
   done_: (thiz: RootContext) => void;
-  createContext_: (thiz: RootContext) => Context;
   onQueueReady_: (thiz: RootContext, token: u32) => void;
 
-  private http_calls_: Map<u32, (headers: u32,  body_size: usize, trailers: u32) => void>;
+  private configuration: string;
+  private http_calls_: Map<u32, HttpCallback>;
   private grpc_calls_: Map<u32, GrpcCallback>;
 
-  constructor() {
-    super();
+  constructor(context_id: u32) {
+    super(context_id);
     this.http_calls_ = new Map();
     this.grpc_calls_ = new Map();
-    this.validateConfiguration_ = (thiz: RootContext, configuration_size: size_t) => { return thiz.validateConfiguration(configuration_size); };
-    this.onConfigure_ = (thiz: RootContext, configuration_size: size_t) => { return thiz.onConfigure(); };
-    this.onStart_ = (thiz: RootContext, vm_configuration_size: size_t) => { return thiz.onStart(vm_configuration_size); };
+    this.validateConfiguration_ = (thiz: RootContext, configuration_size: usize) => { return thiz.validateConfiguration(configuration_size); };
+    this.onConfigure_ = (thiz: RootContext, configuration_size: usize) => { return thiz.onConfigure(configuration_size); };
+    this.onStart_ = (thiz: RootContext, vm_configuration_size: usize) => { return thiz.onStart(vm_configuration_size); };
     this.onTick_ = (thiz: RootContext) => { thiz.onTick(); };
     this.onQueueReady_ = (thiz: RootContext, token: u32) => { thiz.onQueueReady(token); };
-    this.createContext_ = (thiz: RootContext) => { return thiz.createContext(); };
     this.onDone_ = (thiz: BaseContext) => { return (thiz as RootContext).onDone(); };
-
   }
 
-  /** 
-   * Get root configuration. must only be called from validateConfiguration or onConfigure. 
-   * @return A buffer containing the filter configuration.
-   */
-  getConfiguration(): ArrayBuffer {
-    CHECK_RESULT(imports.proxy_get_configuration(globalArrayBufferReference.bufferPtr(), globalArrayBufferReference.sizePtr()));
-    let array = globalArrayBufferReference.toArrayBuffer();
-    return array;
+  getConfiguration(): string {
+    return this.configuration;
   }
 
-  /**
-   * Cancels all pending http requests. Called automatically on onDone.
-   */
+  // Cancels all pending http requests. Called automatically on onDone.
   cancelPendingRequests(): void {
+    log(LogLevelValues.debug, "context id: " + this.context_id.toString() + " : cancelPendingRequests()");
+    const callbacks = this.http_calls_.values();
+    for (let i = 0; i < callbacks.length; ++i) {
+      callbacks[i].cb
+    }
     let keys = this.http_calls_.keys();
     for (let i = 0; i < keys.length; ++i) {
       let key = keys[i];
@@ -770,21 +785,52 @@ export class RootContext extends BaseContext {
 
   // Can be used to validate the configuration (e.g. in the control plane). Returns false if the
   // configuration is invalid.
-  validateConfiguration(configuration_sizeconfiguration_size: size_t): bool { return true; }
+  validateConfiguration(configuration_size: usize): bool {
+    log(LogLevelValues.debug, "context id: " + this.context_id.toString() + " : validateConfiguration(configuration_size:" + configuration_size.toString() + ")");
+    return true; 
+  }
+
   // Called once when the VM loads and once when each hook loads and whenever configuration changes.
   // Returns false if the configuration is invalid.
-  onConfigure(): bool { return true; }
-  // Called when each hook loads.  Returns false if the configuration is invalid.
-  onStart(vm_configuration_size: size_t): bool { return true; }
-  // Called when the timer goes off.
-  onTick(): void { }
-  onQueueReady(token: u32): void { }
-  onDone(): bool { this.cancelPendingRequests(); return true; } // Called when the VM is being torn down.
-  done(): void { } // Report that we are now done following returning false from onDone.
-  createContext(): Context {
-    log(LogLevelValues.critical, "base ctx: can't create context");
-    throw new Error("not implemented");
+  onConfigure(configuration_size: usize): bool { 
+    log(LogLevelValues.debug, "context id: " + this.context_id.toString() + ": onConfigure(configuration_size: " + configuration_size.toString() + ")");
+    CHECK_RESULT(imports.proxy_get_configuration(globalArrayBufferReference.bufferPtr(), configuration_size));
+    const conf_buffer = globalArrayBufferReference.toArrayBuffer();
+    let configuration = String.UTF8.decode(conf_buffer);
+    if (configuration == "") {
+      configuration = "default_configuration";
+    }
+    this.configuration = configuration;
+    return true;
   }
+
+  // Called when each hook loads.  Returns false if the configuration is invalid.
+  onStart(vm_configuration_size: usize): bool { 
+    log(LogLevelValues.debug, "context id: " + this.context_id.toString() + " : onStart(vm_configuration_size:" + vm_configuration_size.toString() + ")");
+    return true; 
+  }
+
+  // Called when the timer goes off.
+  onTick(): void { 
+    log(LogLevelValues.debug, "context id: " + this.context_id.toString() + " : onTick()");
+  }
+
+  // Calleed when 
+  onQueueReady(token: u32): void { 
+    log(LogLevelValues.debug, "context id: " + this.context_id.toString() + " : onQueueReady(token:" + token.toString() + ")");
+  }
+
+  // Called when the VM is being torn down.
+  onDone(): bool { 
+    log(LogLevelValues.debug, "context id: " + this.context_id.toString() + " : onDone()");
+    this.cancelPendingRequests(); 
+    return true;
+  }
+
+  // Report that we are now done following returning false from onDone.
+  done(): void { 
+    log(LogLevelValues.debug, "context id: " + this.context_id.toString() + " : done()");
+  } 
 
   /**
    * Make an http call.
@@ -795,28 +841,37 @@ export class RootContext extends BaseContext {
    * @param timeout_milliseconds Timeout for the request, in milliseconds.
    * @param cb Callback to be invoked when the request is complete.
    */
-  httpCall(cluster: string, headers: Headers, body: ArrayBuffer, trailers: Headers,
-    timeout_milliseconds: u32, cb: (headers: u32,  body_size: usize, trailers: u32) => void): WasmResultValues {
-
+  httpCall(cluster: string, headers: Headers, body: ArrayBuffer, trailers: Headers, timeout_milliseconds: u32, origin_context_id: u32, cb: (origin_context_id:u32, headers: u32,  body_size: usize, trailers: u32) => void): WasmResultValues {
     let buffer = String.UTF8.encode(cluster);
     let header_pairs = serializeHeaders(headers);
     let trailer_pairs = serializeHeaders(trailers);
     let token = new Reference<u32>();
+    this.http_calls_.set(token.data, new HttpCallback(origin_context_id, cb));
+    log(LogLevelValues.debug, "http_calls_: " + this.http_calls_.size.toString());
+    log(LogLevelValues.debug, "set token: " + token.data.toString() + " on " + this.context_id.toString());
     let result = imports.proxy_http_call(changetype<usize>(buffer), buffer.byteLength, changetype<usize>(header_pairs), header_pairs.byteLength, changetype<usize>(body), body.byteLength, changetype<usize>(trailer_pairs), trailer_pairs.byteLength, timeout_milliseconds, token.ptr());
     log(LogLevelValues.debug, "result: " + result.toString());
-    if (result == WasmResultValues.Ok) {
-      this.http_calls_.set(token.data, cb);
-    }
     return result;
   }
+  
   onHttpCallResponse(token: u32, headers: u32, body_size: u32, trailers: u32): void {
-    log(LogLevelValues.debug, "onHttpCallResponse: " + token.toString() + ", " + headers.toString() + ", " + body_size.toString() + ", " + trailers.toString())
-    if (this.http_calls_.has(token)) {
-      let callback = this.http_calls_.get(token);
-      this.http_calls_.delete(token);
-      callback(headers, body_size, trailers);
+    log(LogLevelValues.debug, "context id: " + this.context_id.toString() + " : onHttpCallResponse(token: " + token.toString() + ", headers:" + headers.toString() + ", body_size:" + body_size.toString() + ", trailers:" + trailers.toString() + ")");
+    log(LogLevelValues.debug, "http_calls_: " + this.http_calls_.size.toString());
+    log(LogLevelValues.debug, "get token: " + token.toString() + " from " + this.context_id.toString());
+    log(LogLevelValues.debug, "context_map: " + context_map.keys().join(", "));
+    const readToken = get_buffer_bytes(BufferTypeValues.HttpCallResponseBody, 0, token);
+    log(LogLevelValues.debug, "readToken: " + readToken.toString());
+    if (this.http_calls_.has(0)) {
+      let callback = this.http_calls_.get(0);
+      log(LogLevelValues.debug, "onHttpCallResponse: calling callback for context id: " + callback.origin_context_id.toString());
+      this.http_calls_.delete(0);
+      this.setEffectiveContext(callback.origin_context_id);
+      callback.cb(callback.origin_context_id, headers, body_size, trailers);
+      this.continueRequest();
     }
+    log(LogLevelValues.error, "onHttpCallResponse: Token " + token.toString() + " not found.");
   }
+
   on_grpc_create_initial_metadata(token: u32, headers: u32): void { }
   on_grpc_receive_initial_metadata(token: u32, headers: u32): void { }
   on_grpc_trailing_metadata(token: u32, trailers: u32): void { }
@@ -841,7 +896,6 @@ export class RootContext extends BaseContext {
   grpc_stream(service_ptr, service_size, service_name_ptr, service_name_size, method_name_ptr, method_name_size, token_ptr) { return 0; },
   // {proxy_grpc_cancel as grpc_cancel,proxy_grpc_close as grpc_close,proxy_grpc_send as grpc_send} from "./imports";
 */
-
 }
 
 /**
@@ -849,58 +903,81 @@ export class RootContext extends BaseContext {
  */
 export class Context extends BaseContext {
 
+  root_context: RootContext;
+  
   onNewConnection_: (thiz: Context) => FilterStatusValues;
-  onDownstreamData_: (thiz: Context, size: size_t, end: bool) => FilterStatusValues;
-  onUpstreamData_: (thiz: Context, size: size_t, end: bool) => FilterStatusValues;
+  onDownstreamData_: (thiz: Context, size: usize, end: bool) => FilterStatusValues;
+  onUpstreamData_: (thiz: Context, size: usize, end: bool) => FilterStatusValues;
   onDownstreamConnectionClose_: (thiz: Context, t: PeerTypeValues) => void;
   onUpstreamConnectionClose_: (thiz: Context, t: PeerTypeValues) => void;
   onRequestHeaders_: (thiz: Context, a: u32) => FilterHeadersStatusValues;
   onRequestMetadata_: (thiz: Context, a: u32) => FilterMetadataStatusValues;
-  onRequestBody_: (thiz: Context, body_buffer_length: size_t, end_of_stream: bool) => FilterDataStatusValues;
+  onRequestBody_: (thiz: Context, body_buffer_length: usize, end_of_stream: bool) => FilterDataStatusValues;
   onRequestTrailers_: (thiz: Context, a: u32) => FilterTrailersStatusValues;
   onResponseHeaders_: (thiz: Context, a: u32) => FilterHeadersStatusValues;
   onResponseMetadata_: (thiz: Context, a: u32) => FilterMetadataStatusValues;
-  onResponseBody_: (thiz: Context, body_buffer_length: size_t, end_of_stream: bool) => FilterDataStatusValues;
+  onResponseBody_: (thiz: Context, body_buffer_length: usize, end_of_stream: bool) => FilterDataStatusValues;
   onResponseTrailers_: (thiz: Context, s: u32) => FilterTrailersStatusValues;
   onLog_: (thiz: Context) => void;
 
-  constructor() {
-    super();
+  constructor(context_id_:u32, root_context: RootContext) {
+    super(context_id_);
+    this.root_context = root_context;
     this.onNewConnection_ = (thiz: Context) => { return thiz.onNewConnection(); }
-    this.onDownstreamData_ = (thiz: Context, size: size_t, end: bool) => { return thiz.onDownstreamData(size, end); }
-    this.onUpstreamData_ = (thiz: Context, size: size_t, end: bool) => { return thiz.onUpstreamData(size, end); }
+    this.onDownstreamData_ = (thiz: Context, size: usize, end: bool) => { return thiz.onDownstreamData(size, end); }
+    this.onUpstreamData_ = (thiz: Context, size: usize, end: bool) => { return thiz.onUpstreamData(size, end); }
     this.onDownstreamConnectionClose_ = (thiz: Context, t: PeerTypeValues) => { thiz.onDownstreamConnectionClose(t); }
     this.onUpstreamConnectionClose_ = (thiz: Context, t: PeerTypeValues) => { thiz.onUpstreamConnectionClose(t); }
     this.onRequestHeaders_ = (thiz: Context, a: u32) => { return thiz.onRequestHeaders(a); }
     this.onRequestMetadata_ = (thiz: Context, a: u32) => { return thiz.onRequestMetadata(a); }
-    this.onRequestBody_ = (thiz: Context, body_buffer_length: size_t, end_of_stream: bool) => { return thiz.onRequestBody(body_buffer_length, end_of_stream); }
+    this.onRequestBody_ = (thiz: Context, body_buffer_length: usize, end_of_stream: bool) => { return thiz.onRequestBody(body_buffer_length, end_of_stream); }
     this.onRequestTrailers_ = (thiz: Context, a: u32) => { return thiz.onRequestTrailers(a); }
     this.onResponseHeaders_ = (thiz: Context, a: u32) => { return thiz.onResponseHeaders(a); }
     this.onResponseMetadata_ = (thiz: Context, a: u32) => { return thiz.onResponseMetadata(a); }
-    this.onResponseBody_ = (thiz: Context, body_buffer_length: size_t, end_of_stream: bool) => { return thiz.onResponseBody(body_buffer_length, end_of_stream); }
+    this.onResponseBody_ = (thiz: Context, body_buffer_length: usize, end_of_stream: bool) => { return thiz.onResponseBody(body_buffer_length, end_of_stream); }
     this.onResponseTrailers_ = (thiz: Context, s: u32) => { return thiz.onResponseTrailers(s); }
     this.onLog_ = (thiz: Context) => { thiz.onLog(); }
   }
 
-  onNewConnection(): FilterStatusValues { return FilterStatusValues.Continue; }
-  onDownstreamData(size: size_t, end: bool): FilterStatusValues { return FilterStatusValues.Continue; }
-  onUpstreamData(size: size_t, end: bool): FilterStatusValues { return FilterStatusValues.Continue; }
-  onDownstreamConnectionClose(t: PeerTypeValues): void { }
-  onUpstreamConnectionClose(t: PeerTypeValues): void { }
+  onNewConnection(): FilterStatusValues { 
+    log(LogLevelValues.debug, "context id: " + this.context_id.toString() + " : onNewConnection()");
+    return FilterStatusValues.Continue; 
+  }
+  
+  onDownstreamData(size: usize, end: bool): FilterStatusValues { 
+    log(LogLevelValues.debug, "context id: " + this.context_id.toString() + " : onDownstreamData(size: " + size.toString() + ", end: " + end.toString() + ")");
+    return FilterStatusValues.Continue; 
+  }
+
+  onUpstreamData(size: usize, end: bool): FilterStatusValues { 
+    log(LogLevelValues.debug, "context id: " + this.context_id.toString() + " : onUpstreamData(size: " + size.toString() + ", end: " + end.toString() + ")");
+    return FilterStatusValues.Continue; 
+  }
+
+  onDownstreamConnectionClose(t: PeerTypeValues): void { 
+    log(LogLevelValues.debug, "context id: " + this.context_id.toString() + " : onDownstreamConnectionClose(t: " + t.toString() + ")");
+  }
+  
+  onUpstreamConnectionClose(t: PeerTypeValues): void { 
+    log(LogLevelValues.debug, "context id: " + this.context_id.toString() + " : onUpstreamConnectionClose(t: " + t.toString() + ")");
+  }
 
   onRequestHeaders(a: u32): FilterHeadersStatusValues { return FilterHeadersStatusValues.Continue }
   onRequestMetadata(a: u32): FilterMetadataStatusValues { return FilterMetadataStatusValues.Continue }
-  onRequestBody(body_buffer_length: size_t, end_of_stream: bool): FilterDataStatusValues { return FilterDataStatusValues.Continue }
+  onRequestBody(body_buffer_length: usize, end_of_stream: bool): FilterDataStatusValues { return FilterDataStatusValues.Continue }
   onRequestTrailers(a: u32): FilterTrailersStatusValues { return FilterTrailersStatusValues.Continue }
   onResponseHeaders(a: u32): FilterHeadersStatusValues { return FilterHeadersStatusValues.Continue }
   onResponseMetadata(a: u32): FilterMetadataStatusValues { return FilterMetadataStatusValues.Continue }
-  onResponseBody(body_buffer_length: size_t, end_of_stream: bool): FilterDataStatusValues { return FilterDataStatusValues.Continue }
+  onResponseBody(body_buffer_length: usize, end_of_stream: bool): FilterDataStatusValues { return FilterDataStatusValues.Continue }
   onResponseTrailers(s: u32): FilterTrailersStatusValues { return FilterTrailersStatusValues.Continue }
-  onLog(): void { }  // Called after onDone when logging is requested.
+  
+  // Called after onDone when logging is requested.
+  onLog(): void { 
+    log(LogLevelValues.debug, "context id: " + this.context_id.toString() + " : onLog()");
+  }
 }
 
 function get_plugin_root_id(): string {
-
   let root_id = get_property("plugin_root_id");
   if (root_id.byteLength == 0) {
     return "";
@@ -908,57 +985,64 @@ function get_plugin_root_id(): string {
   return String.UTF8.decode(root_id);
 }
 
+let root_context_factory_map = new Map<string, (context_id: u32) => RootContext>();
+let context_factory_map = new Map<string, (context_id: u32, root_context:RootContext) => Context>();
+
 let context_map = new Map<u32, BaseContext>();
+
+//create root context if doesn't exist
 export function ensureRootContext(root_context_id: u32): RootContext {
+  log(LogLevelValues.debug, "ensureRootContext(root_context_id: " + root_context_id.toString() + ")");
+  log(LogLevelValues.debug, "Current context_map: " + context_map.keys().join(", "));
   if (context_map.has(root_context_id)) {
+    log(LogLevelValues.debug, "Returning root context for id: " + root_context_id.toString());
     return getRootContext(root_context_id);
   }
   let root_id = get_plugin_root_id();
-  if (root_factory.has(root_id)) {
-    let root_context_func = root_factory.get(root_id);
-    let root_context = root_context_func();
-    root_context.context_id = root_context_id;
-    context_map.set(root_context_id, root_context);
-
-    log(LogLevelValues.warn, "returning context for " + root_id);
-    return root_context;
+  log(LogLevelValues.debug, "Registering new root context for " + root_id + " with id: " + root_context_id.toString());
+  if (!root_context_factory_map.has(root_id)) {
+    throw new Error("Missing root context factory for root id: " + root_id);
   }
-
-  log(LogLevelValues.warn, "did not find root id " + root_id)
-
-  let root_context = new RootContext();
+  let root_context_func = root_context_factory_map.get(root_id);
+  let root_context = root_context_func(root_context_id);
   root_context.context_id = root_context_id;
   context_map.set(root_context_id, root_context);
   return root_context;
 }
 
-let root_factory = new Map<string, () => RootContext>();
-//let context_map = new Map<u32, Context>();
+// create a context if doesnt exist.
+export function ensureContext(context_id: u32, root_context_id: u32): void {
+  log(LogLevelValues.debug, "ensureContext(context_id: " + context_id.toString() + ", root_context_id: " + root_context_id.toString() + ")");
+  log(LogLevelValues.debug, "Current context_map: " + context_map.keys().join(", "));
+  if (context_map.has(context_id)) {
+    log(LogLevelValues.debug, "Returning context for id: " + context_id.toString());
+    return;
+  }
+  let root_id = get_plugin_root_id();
+  let root_context = getRootContext(root_context_id);
+  log(LogLevelValues.debug, "Registering new context wit context_id: " + context_id.toString() + " under root_context: " + root_context_id.toString() + " for root id:" + root_id);
+  if (!context_factory_map.has(root_id)) {
+    throw new Error("Missing context factory for root id: " + root_id)
+  }
+  let context_factory_method = context_factory_map.get(root_id);
+  let context = context_factory_method(context_id, root_context);
+  context_map.set(context_id, context);
+  log(LogLevelValues.debug, "Updated context_map: " + context_map.keys().join(", "));
+}
 
 export function getBaseContext(context_id: u32): BaseContext {
-  return context_map.get(context_id);
+  return context_map.get(context_id) as BaseContext;
 }
 export function getContext(context_id: u32): Context {
   return context_map.get(context_id) as Context;
-}
-export function deleteContext(context_id: u32): void {
-  context_map.delete(context_id);
 }
 export function getRootContext(context_id: u32): RootContext {
   return context_map.get(context_id) as RootContext;
 }
 
-// create a context if doesnt exist.
-export function ensureContext(context_id: u32, root_context_id: u32): void {
-  if (context_map.has(context_id)) {
-    return;
-  }
-  let root_context = getRootContext(root_context_id);
-  let context = root_context.createContext_(root_context);
-  context.context_id = context_id;
-  context_map.set(context_id, context);
+export function deleteContext(context_id: u32): void {
+  context_map.delete(context_id);
 }
-
 
 /**
  * Because asm script doest support virtual functions, we need to wrap root contexts with this wrapper.
@@ -971,19 +1055,19 @@ export class RootContextHelper<T extends RootContext> extends RootContext {
   }
   that: T;
   constructor(that: T) {
-    super();
+    super(that.context_id);
     this.that = that;
     // OOP HACK
-    this.validateConfiguration_ = (thiz: RootContext, configuration_size: size_t) => { return (thiz as RootContextHelper<T>).that.validateConfiguration(configuration_size); };
-    this.onConfigure_ = (thiz: RootContext, configuration_size: size_t) => { return (thiz as RootContextHelper<T>).that.onConfigure(); };
-    this.onStart_ = (thiz: RootContext, vm_configuration_size: size_t) => { return (thiz as RootContextHelper<T>).that.onStart(vm_configuration_size); };
+    this.validateConfiguration_ = (thiz: RootContext, configuration_size: usize) => { return (thiz as RootContextHelper<T>).that.validateConfiguration(configuration_size); };
+    this.onConfigure_ = (thiz: RootContext, configuration_size: usize) => { return (thiz as RootContextHelper<T>).that.onConfigure(configuration_size); };
+    this.onStart_ = (thiz: RootContext, vm_configuration_size: usize) => { return (thiz as RootContextHelper<T>).that.onStart(vm_configuration_size); };
     this.onTick_ = (thiz: RootContext) => { (thiz as RootContextHelper<T>).that.onTick(); };
     this.onQueueReady_ = (thiz: RootContext, token: u32) => { (thiz as RootContextHelper<T>).that.onQueueReady(token); };
     this.onDone_ = (thiz: BaseContext) => { return (thiz as RootContextHelper<T>).that.onDone(); };
     this.done_ = (thiz: RootContext) => { (thiz as RootContextHelper<T>).that.done(); };
-    this.createContext_ = (thiz: RootContext) => { return (thiz as RootContextHelper<T>).that.createContext(); };
-    this.onDelete_ = (thiz: BaseContext) => { (thiz as RootContextHelper<T>).that.onDelete(); }
+    this.onDelete_ = (thiz: BaseContext) => { (thiz as RootContextHelper<T>).that.onDelete(); };
   }
+
 }
 
 /**
@@ -997,21 +1081,21 @@ export class ContextHelper<T extends Context> extends Context {
   }
   that: T;
   constructor(that: T) {
-    super();
+    super(that.context_id, that.root_context);
     this.that = that;
     // OOP HACK - till asm script supports proper oop we have to do this
     this.onNewConnection_ = (thiz: Context) => { return (thiz as ContextHelper<T>).that.onNewConnection(); }
-    this.onDownstreamData_ = (thiz: Context, size: size_t, end: bool) => { return (thiz as ContextHelper<T>).that.onDownstreamData(size, end); }
-    this.onUpstreamData_ = (thiz: Context, size: size_t, end: bool) => { return (thiz as ContextHelper<T>).that.onUpstreamData(size, end); }
+    this.onDownstreamData_ = (thiz: Context, size: usize, end: bool) => { return (thiz as ContextHelper<T>).that.onDownstreamData(size, end); }
+    this.onUpstreamData_ = (thiz: Context, size: usize, end: bool) => { return (thiz as ContextHelper<T>).that.onUpstreamData(size, end); }
     this.onDownstreamConnectionClose_ = (thiz: Context, t: PeerTypeValues) => { (thiz as ContextHelper<T>).that.onDownstreamConnectionClose(t); }
     this.onUpstreamConnectionClose_ = (thiz: Context, t: PeerTypeValues) => { (thiz as ContextHelper<T>).that.onUpstreamConnectionClose(t); }
     this.onRequestHeaders_ = (thiz: Context, a: u32) => { return (thiz as ContextHelper<T>).that.onRequestHeaders(a); }
     this.onRequestMetadata_ = (thiz: Context, a: u32) => { return (thiz as ContextHelper<T>).that.onRequestMetadata(a); }
-    this.onRequestBody_ = (thiz: Context, body_buffer_length: size_t, end_of_stream: bool) => { return (thiz as ContextHelper<T>).that.onRequestBody(body_buffer_length, end_of_stream); }
+    this.onRequestBody_ = (thiz: Context, body_buffer_length: usize, end_of_stream: bool) => { return (thiz as ContextHelper<T>).that.onRequestBody(body_buffer_length, end_of_stream); }
     this.onRequestTrailers_ = (thiz: Context, a: u32) => { return (thiz as ContextHelper<T>).that.onRequestTrailers(a); }
     this.onResponseHeaders_ = (thiz: Context, a: u32) => { return (thiz as ContextHelper<T>).that.onResponseHeaders(a); }
     this.onResponseMetadata_ = (thiz: Context, a: u32) => { return (thiz as ContextHelper<T>).that.onResponseMetadata(a); }
-    this.onResponseBody_ = (thiz: Context, body_buffer_length: size_t, end_of_stream: bool) => { return (thiz as ContextHelper<T>).that.onResponseBody(body_buffer_length, end_of_stream); }
+    this.onResponseBody_ = (thiz: Context, body_buffer_length: usize, end_of_stream: bool) => { return (thiz as ContextHelper<T>).that.onResponseBody(body_buffer_length, end_of_stream); }
     this.onResponseTrailers_ = (thiz: Context, s: u32) => { return (thiz as ContextHelper<T>).that.onResponseTrailers(s); }
     this.onDone_ = (thiz: BaseContext) => { return (thiz as ContextHelper<T>).that.onDone(); }
     this.onLog_ = (thiz: Context) => { (thiz as ContextHelper<T>).that.onLog(); }
@@ -1020,10 +1104,15 @@ export class ContextHelper<T extends Context> extends Context {
 }
 
 /**
- * Register a root cotnext and make it available to the runtime.
- * @param c A function that creates a new root context.
+ * Register a root context and make it available to the runtime.
+ * @param root_context_factory A function that creates a new root context.
+ * @param context_factory A function that creates a new context and assignes root context to it.
  * @param name The name of the root context. This should match the name configured in the proxy.
  */
-export function registerRootContext(c: () => RootContext, name: string): void {
-  root_factory.set(name, c);
+export function registerRootContext(
+    root_context_factory: (context_id: u32) => RootContext, 
+    context_factory: (context_id: u32, root_context: RootContext) => Context, 
+    name: string): void {
+  root_context_factory_map.set(name, root_context_factory);
+  context_factory_map.set(name, context_factory);
 }
