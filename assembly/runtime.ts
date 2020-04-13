@@ -744,7 +744,7 @@ export class RootContext extends BaseContext {
   onQueueReady_: (thiz: RootContext, token: u32) => void;
   onHttpCallResponse_: (thiz: RootContext, token: u32, headers: u32, body_size: u32, trailers: u32) => void;
 
-  private configuration_: string = "default_configuration"
+  private configuration_: string = "";
   private http_calls_: Map<u32, HttpCallback> = new Map();
   private grpc_calls_: Map<u32, GrpcCallback> = new Map();
 
@@ -847,11 +847,10 @@ export class RootContext extends BaseContext {
     let header_pairs = serializeHeaders(headers);
     let trailer_pairs = serializeHeaders(trailers);
     let token = new Reference<u32>();
-    this.http_calls_.set(token.data, new HttpCallback(origin_context_id, cb));
-    log(LogLevelValues.debug, "http_calls_: " + this.http_calls_.size.toString());
-    log(LogLevelValues.debug, "set token: " + token.data.toString() + " on " + this.context_id.toString());
     let result = imports.proxy_http_call(changetype<usize>(buffer), buffer.byteLength, changetype<usize>(header_pairs), header_pairs.byteLength, changetype<usize>(body), body.byteLength, changetype<usize>(trailer_pairs), trailer_pairs.byteLength, timeout_milliseconds, token.ptr());
-    log(LogLevelValues.debug, "result: " + result.toString());
+    log(LogLevelValues.debug, "imports.proxy_http_call result: " + result.toString());
+    log(LogLevelValues.debug, "set token: " + token.data.toString() + " on " + this.context_id.toString());
+    this.http_calls_.set(token.data, new HttpCallback(origin_context_id, cb));
     return result;
   }
   
@@ -860,12 +859,10 @@ export class RootContext extends BaseContext {
     log(LogLevelValues.debug, "http_calls_: " + this.http_calls_.size.toString());
     log(LogLevelValues.debug, "get token: " + token.toString() + " from " + this.context_id.toString());
     log(LogLevelValues.debug, "context_map: " + context_map.keys().join(", "));
-    const readToken = get_buffer_bytes(BufferTypeValues.HttpCallResponseBody, 0, token);
-    log(LogLevelValues.debug, "readToken: " + readToken.toString());
-    if (this.http_calls_.has(0)) {
-      let callback = this.http_calls_.get(0);
+    if (this.http_calls_.has(token)) {
+      let callback = this.http_calls_.get(token);
       log(LogLevelValues.debug, "onHttpCallResponse: calling callback for context id: " + callback.origin_context_id.toString());
-      this.http_calls_.delete(0);
+      this.http_calls_.delete(token);
       this.setEffectiveContext(callback.origin_context_id);
       callback.cb(callback.origin_context_id, headers, body_size, trailers);
       this.continueRequest();
