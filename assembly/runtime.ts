@@ -764,9 +764,9 @@ export class RootContext extends BaseContext {
     return this.configuration_;
   }
 
+  // Need to be overloaded on Filter Root Context implementation
   createContext(context_id: u32): Context {
-    log(LogLevelValues.critical, "base ctx: can't create context with id: " + context_id.toString());
-    throw new Error("not implemented");
+    return ContextHelper.wrap(new Context(context_id, this));
   }
 
   // Cancels all pending http requests. Called automatically on onDone.
@@ -774,7 +774,9 @@ export class RootContext extends BaseContext {
     log(LogLevelValues.debug, "context id: " + this.context_id.toString() + ": cancelPendingRequests()");
     const callbacks = this.http_calls_.values();
     for (let i = 0; i < callbacks.length; ++i) {
-      callbacks[i].cb
+      // Calling callbacks with no response
+      // TODO: return some parameter telling the filter that these requests were canceled.
+      callbacks[i].cb(callbacks[i].origin_context_id, 0, 0, 0);
     }
     let keys = this.http_calls_.keys();
     for (let i = 0; i < keys.length; ++i) {
