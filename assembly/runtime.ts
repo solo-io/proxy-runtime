@@ -659,6 +659,17 @@ export function get_metric(metric_id: u32): MetricData {
 }
 
 export function done(): WasmResultValues { return imports.proxy_done(); }
+
+//Only exporting this function while we are still working on the http call support. 
+//Once we decided how to read http response headers and pass those to the callback function, 
+// we should remove this export and make sure this proxy call is only made thru BaseContext.setEffectiveContext().
+export function proxy_set_effective_context(_id: u32): WasmResultValues {
+  const result = imports.proxy_set_effective_context(_id);
+  if (result != WasmResultValues.Ok) {
+    log(LogLevelValues.critical, "Unable to set effective context: " + _id.toString() + " with result: "+ result.toString());
+  }
+  return result;
+}
 /////// runtime support
 
 /**
@@ -683,11 +694,7 @@ export abstract class BaseContext {
    * @param _id 
    */
   setEffectiveContext(_id: u32): WasmResultValues {
-    const result = imports.proxy_set_effective_context(_id);
-    if (result != WasmResultValues.Ok) {
-      log(LogLevelValues.critical, "Unable to set effective context: " + _id.toString() + " with result: "+ result.toString());
-    }
-    return result;
+    return proxy_set_effective_context(_id);
   }
 
   continueRequest(): void {
@@ -798,7 +805,6 @@ export class RootContext extends BaseContext {
   // Returns false if the configuration is invalid.
   onConfigure(configuration_size: usize): bool { 
     log(LogLevelValues.debug, "context id: " + this.context_id.toString() + ": onConfigure(configuration_size: " + configuration_size.toString() + ")");
-    // Instead of making a call to the proxy, need to read the configuration from buffer..
     CHECK_RESULT(imports.proxy_get_configuration(globalArrayBufferReference.bufferPtr(), configuration_size));
     this.configuration_ = String.UTF8.decode(globalArrayBufferReference.toArrayBuffer());
     log(LogLevelValues.debug, "context id: " + this.context_id.toString() + ": Updating this.configuration=" + this.configuration_);
@@ -843,14 +849,17 @@ export class RootContext extends BaseContext {
    * @param cb Callback to be invoked when the request is complete.
    */
   httpCall(cluster: string, headers: Headers, body: ArrayBuffer, trailers: Headers, timeout_milliseconds: u32, origin_context_id: u32, cb: (origin_context_id:u32, headers: u32,  body_size: usize, trailers: u32) => void): WasmResultValues {
+    log(LogLevelValues.debug, "context id: " + this.context_id.toString() + ": httpCall(cluster: " + cluster + ", headers:" + headers.toString() + ", body:" + body.toString() + ", trailers:" + trailers.toString() + ")");
     let buffer = String.UTF8.encode(cluster);
     let header_pairs = serializeHeaders(headers);
     let trailer_pairs = serializeHeaders(trailers);
     let token = new Reference<u32>();
     let result = imports.proxy_http_call(changetype<usize>(buffer), buffer.byteLength, changetype<usize>(header_pairs), header_pairs.byteLength, changetype<usize>(body), body.byteLength, changetype<usize>(trailer_pairs), trailer_pairs.byteLength, timeout_milliseconds, token.ptr());
-    log(LogLevelValues.debug, "imports.proxy_http_call result: " + result.toString());
-    log(LogLevelValues.debug, "set token: " + token.data.toString() + " on " + this.context_id.toString());
-    this.http_calls_.set(token.data, new HttpCallback(origin_context_id, cb));
+    log(LogLevelValues.debug, "Http call executed with result: "+ result.toString());
+    if (result = WasmResultValues.Ok) {
+      log(LogLevelValues.debug, "set token: " + token.data.toString() + " on " + this.context_id.toString());
+      this.http_calls_.set(token.data, new HttpCallback(origin_context_id, cb));
+    }
     return result;
   }
   
@@ -863,7 +872,8 @@ export class RootContext extends BaseContext {
       let callback = this.http_calls_.get(token);
       log(LogLevelValues.debug, "onHttpCallResponse: calling callback for context id: " + callback.origin_context_id.toString());
       this.http_calls_.delete(token);
-      this.setEffectiveContext(callback.origin_context_id);
+      //Removing this call for the time being. Callback function is goint to be in charge of setting the effective context once response headers/body/trailers are read.
+      //this.setEffectiveContext(callback.origin_context_id);
       callback.cb(callback.origin_context_id, headers, body_size, trailers);
       this.continueRequest();
     }
@@ -1021,7 +1031,7 @@ export function ensureContext(context_id: u32, root_context_id: u32): void {
     log(LogLevelValues.debug, "Existing context id: " + context_id.toString());
     return;
   }
-  log(LogLevelValues.debug, "Registering new context wit context_id: " + context_id.toString() + " under root_context: " + root_context_id.toString());
+  log(LogLevelValues.debug, "Registering new context with context_id: " + context_id.toString() + " under root_context: " + root_context_id.toString());
   let context = root_context.createContext_(root_context, context_id);
   context_map.set(context_id, context);
   log(LogLevelValues.debug, "Updated context_map: " + context_map.keys().join(", "));
