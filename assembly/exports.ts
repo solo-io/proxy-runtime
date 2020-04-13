@@ -86,7 +86,8 @@ export function proxy_on_response_metadata(context_id: u32, nelements: u32): Fil
 
 // HTTP/gRPC.
 export function proxy_on_http_call_response(context_id: u32, token: u32, headers: u32, body_size: u32, trailers: u32): void {
-  getRootContext(context_id).onHttpCallResponse(token, headers, body_size, trailers);
+  let ctx = getRootContext(context_id);
+  ctx.onHttpCallResponse_(ctx, token, headers, body_size, trailers);
 }
 export function proxy_on_grpc_create_initial_metadata(context_id: u32, token: u32, headers: u32): void {
   getRootContext(context_id).on_grpc_create_initial_metadata(token, headers)
