@@ -15,7 +15,7 @@
   },
   "name": "@solo-io/proxy-runtime",
   "description": "Use this SDK to write extensions for the proxy WASM ABI",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "main": "assembly/index.ts",
   "directories": {
     "doc": "docs"
