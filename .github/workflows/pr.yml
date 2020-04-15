@@ -1,12 +1,12 @@
-name: npm-publish
+name: check-pr
 on:
   push:
     branches:
     - 'master'
   pull_request: {}
 jobs:
-  npm-publish:
-    name: npm-publish
+  check-pr:
+    name: check-pr
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
