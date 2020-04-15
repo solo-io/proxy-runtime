@@ -18,4 +18,4 @@ jobs:
     - run: npm install
     - run: npm run asbuild
     # make sure example filter builds:
-    - run: cd example && npm run asbuild
+    - run: cd example && npm install && npm run asbuild
