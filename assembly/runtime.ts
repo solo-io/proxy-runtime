@@ -856,7 +856,7 @@ export class RootContext extends BaseContext {
     let token = new Reference<u32>();
     let result = imports.proxy_http_call(changetype<usize>(buffer), buffer.byteLength, changetype<usize>(header_pairs), header_pairs.byteLength, changetype<usize>(body), body.byteLength, changetype<usize>(trailer_pairs), trailer_pairs.byteLength, timeout_milliseconds, token.ptr());
     log(LogLevelValues.debug, "Http call executed with result: "+ result.toString());
-    if (result = WasmResultValues.Ok) {
+    if (result == WasmResultValues.Ok) {
       log(LogLevelValues.debug, "set token: " + token.data.toString() + " on " + this.context_id.toString());
       this.http_calls_.set(token.data, new HttpCallback(origin_context_id, cb));
     }
