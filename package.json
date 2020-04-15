@@ -34,5 +34,10 @@
   "bugs": {
     "url": "https://github.com/solo-io/proxy-runtime/issues"
   },
-  "homepage": "https://github.com/solo-io/proxy-runtime#readme"
+  "homepage": "https://github.com/solo-io/proxy-runtime#readme",
+  "files": [
+    "/assembly",
+    "package-lock.json",
+    "index.js"
+  ]
 }
