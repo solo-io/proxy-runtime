@@ -17,3 +17,5 @@ jobs:
         node-version: 10.0.0
     - run: npm install
     - run: npm run asbuild
+    # make sure example filter builds:
+    - run: cd example && npm run asbuild
