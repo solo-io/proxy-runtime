@@ -18,4 +18,5 @@ jobs:
     - run: npm install
     - run: npm run asbuild
     # make sure example filter builds:
-    - run: cd example && npm install && npm run asbuild
+    - run: cd examples/auth && npm install && npm run asbuild
+    - run: cd examples/addheader && npm install && npm run asbuild
