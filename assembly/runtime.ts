@@ -446,9 +446,11 @@ class HeaderStreamManipulator {
 class HeaderMapManipulator {
   request: HeaderStreamManipulator;
   response: HeaderStreamManipulator;
-  constructor(request: HeaderStreamManipulator, response: HeaderStreamManipulator) {
+  http_callback: HeaderStreamManipulator;
+  constructor(request: HeaderStreamManipulator, response: HeaderStreamManipulator, http_callback: HeaderStreamManipulator) {
     this.request = request;
     this.response = response;
+    this.http_callback = http_callback;
   }
 }
 
@@ -469,8 +471,8 @@ class StreamContext {
  * Use this variable to manipulate the current stream.
  */
 export var stream_context = new StreamContext(
-  new HeaderMapManipulator(new HeaderStreamManipulator(HeaderMapTypeValues.RequestHeaders), new HeaderStreamManipulator(HeaderMapTypeValues.ResponseHeaders)),
-  new HeaderMapManipulator(new HeaderStreamManipulator(HeaderMapTypeValues.RequestTrailers), new HeaderStreamManipulator(HeaderMapTypeValues.ResponseTrailers)));
+  new HeaderMapManipulator(new HeaderStreamManipulator(HeaderMapTypeValues.RequestHeaders), new HeaderStreamManipulator(HeaderMapTypeValues.ResponseHeaders), new HeaderStreamManipulator(HeaderMapTypeValues.HttpCallResponseHeaders)),
+  new HeaderMapManipulator(new HeaderStreamManipulator(HeaderMapTypeValues.RequestTrailers), new HeaderStreamManipulator(HeaderMapTypeValues.ResponseTrailers), new HeaderStreamManipulator(HeaderMapTypeValues.HttpCallResponseTrailers)));
 
 
 function get_header_map_value_string(typ: HeaderMapTypeValues, key: string): string {
@@ -673,6 +675,17 @@ export function proxy_set_effective_context(_id: u32): WasmResultValues {
 /////// runtime support
 
 /**
+ * Sets the effective context id to this context. this is useful for example if you receive an
+ * http call in a RootContext, and want to modify headers based on the response in a regular 
+ * Context. You then will call `setEffectiveContext(_id)` so that the header manipulation will
+ * occur in the request context and not in the root context.
+ * @param _id 
+ */
+function setEffectiveContext(_id: u32): WasmResultValues {
+  return proxy_set_effective_context(_id);
+}
+
+/**
  * BaseContexts contains things that are common to RootContext and Context.
  */
 export abstract class BaseContext {
@@ -684,17 +697,6 @@ export abstract class BaseContext {
     this.context_id = context_id_;
     this.onDone_ = (thiz: BaseContext) => { return thiz.onDone(); };
     this.onDelete_ = (thiz: BaseContext) => { thiz.onDelete(); };
-  }
-
-  /**
-   * Sets the effective context id to this context. this is useful for example if you receive an
-   * http call in a RootContext, and want to modify headers based on the response in a regular 
-   * Context. You then will call `setEffectiveContext(_id)` so that the header manipulation will
-   * occur in the requerst context and not in the root context.
-   * @param _id 
-   */
-  setEffectiveContext(_id: u32): WasmResultValues {
-    return proxy_set_effective_context(_id);
   }
 
   continueRequest(): void {
@@ -720,10 +722,10 @@ export abstract class BaseContext {
  * Wrapper around http callbacks. When AS script supports closures, we can refactor \ remove this.
  */
 export class HttpCallback {
-  origin_context_id: u32;
-  cb: (origin_context_id: u32, headers: u32,  body_size: usize, trailers: u32) => void;
-  constructor(origin_context_id: u32, cb: (origin_context_id: u32, headers: u32,  body_size: usize, trailers: u32) => void) {
-    this.origin_context_id = origin_context_id;
+  origin_context: Context;
+  cb: (origin_context: Context, headers: u32,  body_size: usize, trailers: u32) => void;
+  constructor(origin_context: Context, cb: (origin_context: Context, headers: u32,  body_size: usize, trailers: u32) => void) {
+    this.origin_context = origin_context;
     this.cb = cb;
   }
 }
@@ -783,7 +785,7 @@ export class RootContext extends BaseContext {
     for (let i = 0; i < callbacks.length; ++i) {
       // Calling callbacks with no response
       // TODO: return some parameter telling the filter that these requests were canceled.
-      callbacks[i].cb(callbacks[i].origin_context_id, 0, 0, 0);
+      callbacks[i].cb(callbacks[i].origin_context, 0, 0, 0);
     }
     let keys = this.http_calls_.keys();
     for (let i = 0; i < keys.length; ++i) {
@@ -848,7 +850,7 @@ export class RootContext extends BaseContext {
    * @param timeout_milliseconds Timeout for the request, in milliseconds.
    * @param cb Callback to be invoked when the request is complete.
    */
-  httpCall(cluster: string, headers: Headers, body: ArrayBuffer, trailers: Headers, timeout_milliseconds: u32, origin_context_id: u32, cb: (origin_context_id:u32, headers: u32,  body_size: usize, trailers: u32) => void): WasmResultValues {
+  httpCall(cluster: string, headers: Headers, body: ArrayBuffer, trailers: Headers, timeout_milliseconds: u32, origin_context: Context, cb: (origin_context:Context, headers: u32, body_size: usize, trailers: u32) => void): WasmResultValues {
     log(LogLevelValues.debug, "context id: " + this.context_id.toString() + ": httpCall(cluster: " + cluster + ", headers:" + headers.toString() + ", body:" + body.toString() + ", trailers:" + trailers.toString() + ")");
     let buffer = String.UTF8.encode(cluster);
     let header_pairs = serializeHeaders(headers);
@@ -858,7 +860,7 @@ export class RootContext extends BaseContext {
     log(LogLevelValues.debug, "Http call executed with result: "+ result.toString());
     if (result == WasmResultValues.Ok) {
       log(LogLevelValues.debug, "set token: " + token.data.toString() + " on " + this.context_id.toString());
-      this.http_calls_.set(token.data, new HttpCallback(origin_context_id, cb));
+      this.http_calls_.set(token.data, new HttpCallback(origin_context, cb));
     }
     return result;
   }
@@ -870,14 +872,14 @@ export class RootContext extends BaseContext {
     log(LogLevelValues.debug, "context_map: " + context_map.keys().join(", "));
     if (this.http_calls_.has(token)) {
       let callback = this.http_calls_.get(token);
-      log(LogLevelValues.debug, "onHttpCallResponse: calling callback for context id: " + callback.origin_context_id.toString());
+      log(LogLevelValues.debug, "onHttpCallResponse: calling callback for context id: " + callback.origin_context.context_id.toString());
       this.http_calls_.delete(token);
       //Removing this call for the time being. Callback function is goint to be in charge of setting the effective context once response headers/body/trailers are read.
       //this.setEffectiveContext(callback.origin_context_id);
-      callback.cb(callback.origin_context_id, headers, body_size, trailers);
-      this.continueRequest();
+      callback.cb(callback.origin_context, headers, body_size, trailers);
+    } else {
+      log(LogLevelValues.error, "onHttpCallResponse: Token " + token.toString() + " not found.");
     }
-    log(LogLevelValues.error, "onHttpCallResponse: Token " + token.toString() + " not found.");
   }
 
   on_grpc_create_initial_metadata(token: u32, headers: u32): void { }
@@ -948,7 +950,7 @@ export class Context extends BaseContext {
   }
 
   createContext(): Context {
-    log(LogLevelValues.critical, "base ctx: can't create context");
+    log(LogLevelValues.critical, "ctx: can't create context");
     throw new Error("not implemented");
   }
 
@@ -987,6 +989,10 @@ export class Context extends BaseContext {
   // Called after onDone when logging is requested.
   onLog(): void { 
     log(LogLevelValues.debug, "context id: " + this.context_id.toString() + ": onLog()");
+  }
+
+  setEffectiveContext(): WasmResultValues {
+    return imports.proxy_set_effective_context(this.context_id);
   }
 }
 
