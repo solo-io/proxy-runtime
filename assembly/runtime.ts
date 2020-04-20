@@ -722,9 +722,9 @@ export abstract class BaseContext {
  * Wrapper around http callbacks. When AS script supports closures, we can refactor \ remove this.
  */
 export class HttpCallback {
-  origin_context: Context;
-  cb: (origin_context: Context, headers: u32,  body_size: usize, trailers: u32) => void;
-  constructor(origin_context: Context, cb: (origin_context: Context, headers: u32,  body_size: usize, trailers: u32) => void) {
+  origin_context: BaseContext;
+  cb: (origin_context: BaseContext, headers: u32,  body_size: usize, trailers: u32) => void;
+  constructor(origin_context: BaseContext, cb: (origin_context: BaseContext, headers: u32,  body_size: usize, trailers: u32) => void) {
     this.origin_context = origin_context;
     this.cb = cb;
   }
@@ -850,7 +850,7 @@ export class RootContext extends BaseContext {
    * @param timeout_milliseconds Timeout for the request, in milliseconds.
    * @param cb Callback to be invoked when the request is complete.
    */
-  httpCall(cluster: string, headers: Headers, body: ArrayBuffer, trailers: Headers, timeout_milliseconds: u32, origin_context: Context, cb: (origin_context:Context, headers: u32, body_size: usize, trailers: u32) => void): WasmResultValues {
+  httpCall(cluster: string, headers: Headers, body: ArrayBuffer, trailers: Headers, timeout_milliseconds: u32, origin_context: BaseContext, cb: (origin_context:Context, headers: u32, body_size: usize, trailers: u32) => void): WasmResultValues {
     log(LogLevelValues.debug, "context id: " + this.context_id.toString() + ": httpCall(cluster: " + cluster + ", headers:" + headers.toString() + ", body:" + body.toString() + ", trailers:" + trailers.toString() + ")");
     let buffer = String.UTF8.encode(cluster);
     let header_pairs = serializeHeaders(headers);
