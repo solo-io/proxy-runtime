@@ -22,32 +22,51 @@ class Auth extends Context {
 
   onRequestHeaders(a: u32): FilterHeadersStatusValues {
     let cluster = this.root_context.getConfiguration();
+    // make an http call to the auth cluster
     let result = this.root_context.httpCall(cluster,
+      // provide the auth cluster our headers, so it can make an auth decision.
       stream_context.headers.request.get_headers(),
+      // no need for body or trailers
       new ArrayBuffer(0), [],
-      1000, this,
+      // 1 second timout
+      1000,
+      // pass us, so that the callback receives us back.
+      // once AssemblyScript supports closures, this will not be needed.
+      this,
+      // http callback: called when there's a response. if the request failed, headers will be 0
       (origin_context: Context, headers: u32, body_size: usize, trailers: u32) => {
         let context = origin_context as Auth;
-        log(LogLevelValues.debug, "callback called!");
-        log(LogLevelValues.debug, "headers: " + headers.toString() + ", body_size: " + body_size.toString() + ", trailers: " + trailers.toString());
-        if (stream_context.headers.http_callback.get(":status") != "200") {
-          context.setEffectiveContext();
-          send_local_response(403, "not authorized", new ArrayBuffer(0), [], GrpcStatusValues.Unauthenticated);
-          return;
+        let allow = false;
+        if (headers != 0) {
+          // if we have a response, allow the request if we have a 200
+          log(LogLevelValues.debug, "callback called!");
+          log(LogLevelValues.debug, "headers: " + headers.toString() + ", body_size: " + body_size.toString() + ", trailers: " + trailers.toString());
+          if (stream_context.headers.http_callback.get(":status") == "200") {
+            allow = true;
+          }
         }
-        context.allow = true;
+
+        // set the context back to the original request
         context.setEffectiveContext();
-        continue_request();
+        if (allow) {
+          // if we are allowed, continue the request
+          context.allow = true;
+          continue_request();
+        } else {
+          // we are denied, send a local response indicating that.
+          send_local_response(403, "not authorized", new ArrayBuffer(0), [], GrpcStatusValues.Unauthenticated);
+        }
       });
 
     if (result != WasmResultValues.Ok) {
       log(LogLevelValues.debug, "auth failed http call: " + result.toString());
 
-     send_local_response(500, "internal server error", new ArrayBuffer(0), [], GrpcStatusValues.Internal);
+      send_local_response(500, "internal server error", new ArrayBuffer(0), [], GrpcStatusValues.Internal);
 
       return FilterHeadersStatusValues.StopIteration;
     }
 
+    // Only pass upstream if allowed. this covers the case where the http callback was called inline.
     if (this.allow) {
       return FilterHeadersStatusValues.Continue;
     }
@@ -57,7 +76,7 @@ class Auth extends Context {
 
 
   onRequestBody(body_buffer_length: usize, end_of_stream: bool): FilterDataStatusValues {
-
+    // Only pass upstream if allowed
     if (this.allow) {
       return FilterDataStatusValues.Continue;
     }
@@ -66,6 +85,7 @@ class Auth extends Context {
   }
   onRequestTrailers(a: u32): FilterTrailersStatusValues {
 
+    // Only pass upstream if allowed
     if (this.allow) {
       return FilterTrailersStatusValues.Continue;
     }
