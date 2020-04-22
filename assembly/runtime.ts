@@ -876,8 +876,7 @@ export class RootContext extends BaseContext {
       let callback = this.http_calls_.get(token);
       log(LogLevelValues.debug, "onHttpCallResponse: calling callback for context id: " + callback.origin_context.context_id.toString());
       this.http_calls_.delete(token);
-      //Removing this call for the time being. Callback function is goint to be in charge of setting the effective context once response headers/body/trailers are read.
-      //this.setEffectiveContext(callback.origin_context_id);
+      setEffectiveContext(callback.origin_context.context_id);
       callback.cb(callback.origin_context, headers, body_size, trailers);
     } else {
       log(LogLevelValues.error, "onHttpCallResponse: Token " + token.toString() + " not found.");
