@@ -3,7 +3,7 @@
 You can run the example like so:
 ```
 npm run asbuild
-docker run -ti --rm -p 8080:8080 --entrypoint=envoy -v $PWD/envoycfg.yaml:$PWD/envoycfg.yaml:ro -v $PWD/build:$PWD/build:ro -w $PWD istio/proxyv2:1.5.1 -c $PWD/envoycfg.yaml
+docker run -ti --rm -p 8080:8080 --entrypoint=envoy -v $PWD/envoycfg.yaml:$PWD/envoycfg.yaml:ro -v $PWD/build:$PWD/build:ro -w $PWD istio/proxyv2:1.6.0-alpha.1 -c $PWD/envoycfg.yaml
 ```
 
 # Test

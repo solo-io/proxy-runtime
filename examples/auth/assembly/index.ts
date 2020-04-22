@@ -49,6 +49,7 @@ class Auth extends Context {
         // set the context back to the original request
         context.setEffectiveContext();
         if (allow) {
+          stream_context.headers.request.add("added-header", "authorized");
           // if we are allowed, continue the request
           context.allow = true;
           continue_request();
