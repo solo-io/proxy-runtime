@@ -157,12 +157,11 @@ export enum HeaderMapTypeValues {
   RequestTrailers = 1,  // During the onLog callback these are immutable
   ResponseHeaders = 2,  // During the onLog callback these are immutable
   ResponseTrailers = 3, // During the onLog callback these are immutable
-  GrpcCreateInitialMetadata = 4,
-  GrpcReceiveInitialMetadata = 5,  // Immutable
-  GrpcReceiveTrailingMetadata = 6, // Immutable
-  HttpCallResponseHeaders = 7,     // Immutable
-  HttpCallResponseTrailers = 8,    // Immutable
-  MAX = 8,
+  GrpcReceiveInitialMetadata = 4,  // Immutable
+  GrpcReceiveTrailingMetadata = 5, // Immutable
+  HttpCallResponseHeaders = 6,     // Immutable
+  HttpCallResponseTrailers = 7,    // Immutable
+  MAX = 7,
 }
 export enum BufferTypeValues {
   HttpRequestBody = 0,       // During the onLog callback these are immutable
@@ -276,6 +275,9 @@ function serializeHeaders(headers: Headers): ArrayBuffer {
 }
 
 function deserializeHeaders(headers: ArrayBuffer): Headers {
+  if (headers.byteLength == 0){
+    return [];
+  }
   let numheaders = Uint32Array.wrap(headers, 0, 1)[0];
   let sizes = Uint32Array.wrap(headers, sizeof<u32>(), 2 * numheaders);
   let data = headers.slice(sizeof<u32>() * (1 + 2 * numheaders));
@@ -874,8 +876,7 @@ export class RootContext extends BaseContext {
       let callback = this.http_calls_.get(token);
       log(LogLevelValues.debug, "onHttpCallResponse: calling callback for context id: " + callback.origin_context.context_id.toString());
       this.http_calls_.delete(token);
-      //Removing this call for the time being. Callback function is goint to be in charge of setting the effective context once response headers/body/trailers are read.
-      //this.setEffectiveContext(callback.origin_context_id);
+      setEffectiveContext(callback.origin_context.context_id);
       callback.cb(callback.origin_context, headers, body_size, trailers);
     } else {
       log(LogLevelValues.error, "onHttpCallResponse: Token " + token.toString() + " not found.");

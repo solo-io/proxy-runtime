@@ -37,6 +37,7 @@ class Auth extends Context {
       (origin_context: Context, headers: u32, body_size: usize, trailers: u32) => {
         let context = origin_context as Auth;
         let allow = false;
+
         if (headers != 0) {
           // if we have a response, allow the request if we have a 200
           log(LogLevelValues.debug, "callback called!");
@@ -46,9 +47,8 @@ class Auth extends Context {
           }
         }
 
-        // set the context back to the original request
-        context.setEffectiveContext();
         if (allow) {
+          stream_context.headers.request.add("added-header", "authorized");
           // if we are allowed, continue the request
           context.allow = true;
           continue_request();

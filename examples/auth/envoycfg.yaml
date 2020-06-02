@@ -56,7 +56,7 @@ static_resources:
               - "*"
               routes:
               - match:
-                  prefix: "/ok"
+                  prefix: "/get"
                 direct_response:
                   status: 200
                   body:
@@ -109,12 +109,12 @@ static_resources:
         port_value: 8099
   - name: upstream
     connect_timeout: 0.25s
-    type: static
+    type: LOGICAL_DNS
     lb_policy: round_robin
     hosts:
     - socket_address:
-        address: 127.0.0.1
-        port_value: 9090
+        address: postman-echo.com
+        port_value: 80
 admin:
   access_log_path: "/dev/null"
   address:
