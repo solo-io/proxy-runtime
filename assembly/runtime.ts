@@ -78,11 +78,11 @@ export class HeaderPair {
   key: ArrayBuffer;
   value: ArrayBuffer;
 
-  toString() : string {
+  toString(): string {
     return this.key.toString() + ":" + this.value.toString();
   }
 
-  constructor(header_key_data: ArrayBuffer, header_value_data: ArrayBuffer){
+  constructor(header_key_data: ArrayBuffer, header_value_data: ArrayBuffer) {
     this.key = header_key_data;
     this.value = header_value_data;
   }
@@ -302,7 +302,7 @@ function serializeHeaders(headers: Headers): ArrayBuffer {
 }
 
 function deserializeHeaders(headers: ArrayBuffer): Headers {
-  if (headers.byteLength == 0){
+  if (headers.byteLength == 0) {
     return [];
   }
   let numheaders = Uint32Array.wrap(headers, 0, 1)[0];
@@ -312,7 +312,7 @@ function deserializeHeaders(headers: ArrayBuffer): Headers {
   let sizeIndex = 0;
   let dataIndex = 0;
   // for in loop doesn't seem to be supported..
-  for (let i:u32 = 0; i < numheaders; i++) {
+  for (let i: u32 = 0; i < numheaders; i++) {
     let keySize = sizes[sizeIndex];
     sizeIndex++;
     let header_key_data = data.slice(dataIndex, dataIndex + keySize);
@@ -689,7 +689,7 @@ export function done(): WasmResultValues { return imports.proxy_done(); }
 export function proxy_set_effective_context(_id: u32): WasmResultValues {
   const result = imports.proxy_set_effective_context(_id);
   if (result != WasmResultValues.Ok) {
-    log(LogLevelValues.critical, "Unable to set effective context: " + _id.toString() + " with result: "+ result.toString());
+    log(LogLevelValues.critical, "Unable to set effective context: " + _id.toString() + " with result: " + result.toString());
   }
   return result;
 }
@@ -724,15 +724,15 @@ export abstract class BaseContext {
   }
 
   // Called when the VM is being torn down.
-  onDone(): bool { 
+  onDone(): bool {
     log(LogLevelValues.debug, "context id: " + this.context_id.toString() + ": onDone()");
-    return true; 
+    return true;
   }
 
   // Called when the VM is being torn down.
-  onDelete(): void { 
+  onDelete(): void {
     log(LogLevelValues.debug, "context id: " + this.context_id.toString() + ": onDelete()");
-  } 
+  }
 }
 
 /**
@@ -740,8 +740,8 @@ export abstract class BaseContext {
  */
 export class HttpCallback {
   origin_context: BaseContext;
-  cb: (origin_context: BaseContext, headers: u32,  body_size: usize, trailers: u32) => void;
-  constructor(origin_context: BaseContext, cb: (origin_context: BaseContext, headers: u32,  body_size: usize, trailers: u32) => void) {
+  cb: (origin_context: BaseContext, headers: u32, body_size: usize, trailers: u32) => void;
+  constructor(origin_context: BaseContext, cb: (origin_context: BaseContext, headers: u32, body_size: usize, trailers: u32) => void) {
     this.origin_context = origin_context;
     this.cb = cb;
   }
@@ -800,7 +800,7 @@ export class RootContext extends BaseContext {
   // configuration is invalid.
   validateConfiguration(configuration_size: usize): bool {
     log(LogLevelValues.debug, "context id: " + this.context_id.toString() + ": validateConfiguration(configuration_size:" + configuration_size.toString() + ")");
-    return true; 
+    return true;
   }
 
   // Called once when the VM loads and once when each hook loads and whenever configuration changes.
@@ -814,32 +814,32 @@ export class RootContext extends BaseContext {
   }
 
   // Called when each hook loads.  Returns false if the configuration is invalid.
-  onStart(vm_configuration_size: usize): bool { 
+  onStart(vm_configuration_size: usize): bool {
     log(LogLevelValues.debug, "context id: " + this.context_id.toString() + ": onStart(vm_configuration_size:" + vm_configuration_size.toString() + ")");
-    return true; 
+    return true;
   }
 
   // Called when the timer goes off.
-  onTick(): void { 
+  onTick(): void {
     log(LogLevelValues.debug, "context id: " + this.context_id.toString() + ": onTick()");
   }
 
   // Calleed when 
-  onQueueReady(token: u32): void { 
+  onQueueReady(token: u32): void {
     log(LogLevelValues.debug, "context id: " + this.context_id.toString() + ": onQueueReady(token:" + token.toString() + ")");
   }
 
   // Called when the VM is being torn down.
-  onDone(): bool { 
+  onDone(): bool {
     log(LogLevelValues.debug, "context id: " + this.context_id.toString() + ": onDone()");
-    this.cancelPendingRequests(); 
+    this.cancelPendingRequests();
     return true;
   }
 
   // Report that we are now done following returning false from onDone.
-  done(): void { 
+  done(): void {
     log(LogLevelValues.debug, "context id: " + this.context_id.toString() + ": done()");
-  } 
+  }
 
   /**
    * Make an http call.
@@ -850,21 +850,21 @@ export class RootContext extends BaseContext {
    * @param timeout_milliseconds Timeout for the request, in milliseconds.
    * @param cb Callback to be invoked when the request is complete.
    */
-  httpCall(cluster: string, headers: Headers, body: ArrayBuffer, trailers: Headers, timeout_milliseconds: u32, origin_context: BaseContext, cb: (origin_context:Context, headers: u32, body_size: usize, trailers: u32) => void): WasmResultValues {
+  httpCall(cluster: string, headers: Headers, body: ArrayBuffer, trailers: Headers, timeout_milliseconds: u32, origin_context: BaseContext, cb: (origin_context: Context, headers: u32, body_size: usize, trailers: u32) => void): WasmResultValues {
     log(LogLevelValues.debug, "context id: " + this.context_id.toString() + ": httpCall(cluster: " + cluster + ", headers:" + headers.toString() + ", body:" + body.toString() + ", trailers:" + trailers.toString() + ")");
     let buffer = String.UTF8.encode(cluster);
     let header_pairs = serializeHeaders(headers);
     let trailer_pairs = serializeHeaders(trailers);
     let token = new Reference<u32>();
     let result = imports.proxy_http_call(changetype<usize>(buffer), buffer.byteLength, changetype<usize>(header_pairs), header_pairs.byteLength, changetype<usize>(body), body.byteLength, changetype<usize>(trailer_pairs), trailer_pairs.byteLength, timeout_milliseconds, token.ptr());
-    log(LogLevelValues.debug, "Http call executed with result: "+ result.toString());
+    log(LogLevelValues.debug, "Http call executed with result: " + result.toString());
     if (result == WasmResultValues.Ok) {
       log(LogLevelValues.debug, "set token: " + token.data.toString() + " on " + this.context_id.toString());
       this.http_calls_.set(token.data, new HttpCallback(origin_context, cb));
     }
     return result;
   }
-  
+
   onHttpCallResponse(token: u32, headers: u32, body_size: u32, trailers: u32): void {
     log(LogLevelValues.debug, "context id: " + this.context_id.toString() + ": onHttpCallResponse(token: " + token.toString() + ", headers:" + headers.toString() + ", body_size:" + body_size.toString() + ", trailers:" + trailers.toString() + ")");
     log(LogLevelValues.debug, "http_calls_: " + this.http_calls_.size.toString());
@@ -912,8 +912,8 @@ export class RootContext extends BaseContext {
 export class Context extends BaseContext {
 
   root_context: RootContext;
-  
-  constructor(context_id_:u32, root_context: RootContext) {
+
+  constructor(context_id_: u32, root_context: RootContext) {
     super(context_id_);
     this.root_context = root_context;
   }
@@ -923,26 +923,26 @@ export class Context extends BaseContext {
     throw new Error("not implemented");
   }
 
-  onNewConnection(): FilterStatusValues { 
+  onNewConnection(): FilterStatusValues {
     log(LogLevelValues.debug, "context id: " + this.context_id.toString() + ": onNewConnection()");
-    return FilterStatusValues.Continue; 
+    return FilterStatusValues.Continue;
   }
-  
-  onDownstreamData(size: usize, end: bool): FilterStatusValues { 
+
+  onDownstreamData(size: usize, end: bool): FilterStatusValues {
     log(LogLevelValues.debug, "context id: " + this.context_id.toString() + ": onDownstreamData(size: " + size.toString() + ", end: " + end.toString() + ")");
-    return FilterStatusValues.Continue; 
+    return FilterStatusValues.Continue;
   }
 
-  onUpstreamData(size: usize, end: bool): FilterStatusValues { 
+  onUpstreamData(size: usize, end: bool): FilterStatusValues {
     log(LogLevelValues.debug, "context id: " + this.context_id.toString() + ": onUpstreamData(size: " + size.toString() + ", end: " + end.toString() + ")");
-    return FilterStatusValues.Continue; 
+    return FilterStatusValues.Continue;
   }
 
-  onDownstreamConnectionClose(t: PeerTypeValues): void { 
+  onDownstreamConnectionClose(t: PeerTypeValues): void {
     log(LogLevelValues.debug, "context id: " + this.context_id.toString() + ": onDownstreamConnectionClose(t: " + t.toString() + ")");
   }
-  
-  onUpstreamConnectionClose(t: PeerTypeValues): void { 
+
+  onUpstreamConnectionClose(t: PeerTypeValues): void {
     log(LogLevelValues.debug, "context id: " + this.context_id.toString() + ": onUpstreamConnectionClose(t: " + t.toString() + ")");
   }
 
@@ -954,9 +954,9 @@ export class Context extends BaseContext {
   onResponseMetadata(a: u32): FilterMetadataStatusValues { return FilterMetadataStatusValues.Continue }
   onResponseBody(body_buffer_length: usize, end_of_stream: bool): FilterDataStatusValues { return FilterDataStatusValues.Continue }
   onResponseTrailers(s: u32): FilterTrailersStatusValues { return FilterTrailersStatusValues.Continue }
-  
+
   // Called after onDone when logging is requested.
-  onLog(): void { 
+  onLog(): void {
     log(LogLevelValues.debug, "context id: " + this.context_id.toString() + ": onLog()");
   }
 
@@ -1032,7 +1032,7 @@ export function deleteContext(context_id: u32): void {
  * @param name The name of the root context. This should match the name configured in the proxy.
  */
 export function registerRootContext(
-    root_context_factory: (context_id: u32) => RootContext, 
-    name: string): void {
+  root_context_factory: (context_id: u32) => RootContext,
+  name: string): void {
   root_context_factory_map.set(name, root_context_factory);
 }

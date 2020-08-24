@@ -28,7 +28,7 @@ export function proxy_on_tick(root_context_id: u32): void {
   let root_context = getRootContext(root_context_id);
   root_context.onTick();
 }
-export function proxy_on_foreign_function( root_context_id : u32, function_id : u32, data_size : u32) : void{
+export function proxy_on_foreign_function(root_context_id: u32, function_id: u32, data_size: u32): void {
   // TODO: implement me
 }
 
@@ -45,7 +45,7 @@ export function proxy_on_context_create(context_id: u32, root_context_id: u32): 
   }
 }
 
-export function proxy_on_request_headers(context_id: u32, headers: u32, end_of_stream:u32): FilterHeadersStatus {
+export function proxy_on_request_headers(context_id: u32, headers: u32, end_of_stream: u32): FilterHeadersStatus {
   let ctx = getContext(context_id);
   return ctx.onRequestHeaders(headers, end_of_stream != 0) as FilterHeadersStatus;
 }

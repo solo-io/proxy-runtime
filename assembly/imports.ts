@@ -45,10 +45,10 @@ export declare function proxy_set_property(path_ptr: ptr<char>, path_size: size_
 // Continue/Reply/Route
 // @ts-ignore: decorator
 @external("env", "proxy_continue_stream")
-export declare function proxy_continue_stream(stream_type:StreamType): WasmResult;
+export declare function proxy_continue_stream(stream_type: StreamType): WasmResult;
 // @ts-ignore: decorator
 @external("env", "proxy_close_stream")
-export declare function proxy_close_stream(stream_type:StreamType): WasmResult;
+export declare function proxy_close_stream(stream_type: StreamType): WasmResult;
 // @ts-ignore: decorator
 @external("env", "proxy_send_local_response")
 export declare function proxy_send_local_response(response_code: u32, response_code_details_ptr: ptr<char>,
@@ -124,7 +124,7 @@ export declare function proxy_get_buffer_status(typ: BufferType, length_ptr: ptr
 
 // @ts-ignore: decorator
 @external("env", "proxy_get_buffer_status")
-export declare function proxy_set_buffer_status(typ: BufferType, start:u32 , length:u32,data : ptr<char>, size: size_t): WasmResult;
+export declare function proxy_set_buffer_status(typ: BufferType, start: u32, length: u32, data: ptr<char>, size: size_t): WasmResult;
 
 // HTTP
 // @ts-ignore: decorator
@@ -171,6 +171,6 @@ export declare function proxy_done(): WasmResult;
 // @ts-ignore: decorator
 @external("env", "proxy_call_foreign_function")
 export declare function proxy_call_foreign_function(function_name: ptr<char>,
-  name_size: size_t, arguments : ptr<char>,
-  arguments_size : size_t, results:ptr<ptr<char>>,
-  results_size : ptr<size_t>): WasmResult;
+  name_size: size_t, arguments: ptr<char>,
+  arguments_size: size_t, results: ptr<ptr<char>>,
+  results_size: ptr<size_t>): WasmResult;
