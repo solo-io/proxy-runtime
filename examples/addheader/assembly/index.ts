@@ -6,7 +6,7 @@ class AddHeaderRoot extends RootContext {
   configuration : string;
 
   createContext(context_id: u32): Context {
-    return ContextHelper.wrap(new AddHeader(context_id, this));
+    return new AddHeader(context_id, this);
   }
 }
 
@@ -16,7 +16,7 @@ class AddHeader extends Context {
     super(context_id, root_context);
     this.root_context = root_context;
   }
-  onResponseHeaders(a: u32): FilterHeadersStatusValues {
+  onResponseHeaders(a: u32, end_of_stream: bool): FilterHeadersStatusValues {
     const root_context = this.root_context;
     if (root_context.getConfiguration() == "") {
       stream_context.headers.response.add("hello", "world!");
@@ -27,4 +27,4 @@ class AddHeader extends Context {
   }
 }
 
-registerRootContext((context_id: u32) => { return RootContextHelper.wrap(new AddHeaderRoot(context_id)); }, "add_header");
+registerRootContext((context_id: u32) => { return new AddHeaderRoot(context_id); }, "add_header");

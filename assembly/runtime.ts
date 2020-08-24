@@ -3,6 +3,7 @@ import * as imports from "./imports";
 import { free } from "./malloc";
 import { proc_exit } from "bindings/wasi_unstable";
 
+
 // abort function.
 // use with:
 // --use abort=index/abort_proc_exit
@@ -11,10 +12,10 @@ import { proc_exit } from "bindings/wasi_unstable";
 @global
 export function abort_proc_exit(message: string | null, fileName: string | null, lineNumber: u32, columnNumber: u32): void {
   let logMessage = "";
-  if (message != null) {
+  if (message !== null) {
     logMessage += message.toString();
   }
-  if (fileName != null) {
+  if (fileName !== null) {
     logMessage += " at: " + fileName.toString() + "(" + lineNumber.toString() + ":" + columnNumber.toString() + ")";
   }
   log(LogLevelValues.critical, logMessage);
@@ -80,40 +81,26 @@ export class HeaderPair {
   toString() : string {
     return this.key.toString() + ":" + this.value.toString();
   }
+
+  constructor(header_key_data: ArrayBuffer, header_value_data: ArrayBuffer){
+    this.key = header_key_data;
+    this.value = header_value_data;
+  }
 }
 
 export type Headers = Array<HeaderPair>;
 
 
-export enum LogLevelValues { trace, debug, info, warn, error, critical };
-export enum WasmResultValues {
-  Ok = 0,
-  // The result could not be found, e.g. a provided key did not appear in a table.
-  NotFound = 1,
-  // An argument was bad, e.g. did not not conform to the required range.
-  BadArgument = 2,
-  // A protobuf could not be serialized.
-  SerializationFailure = 3,
-  // A protobuf could not be parsed.
-  ParseFailure = 4,
-  // A provided expression (e.g. "foo.bar") was illegal or unrecognized.
-  BadExpression = 5,
-  // A provided memory range was not legal.
-  InvalidMemoryAccess = 6,
-  // Data was requested from an empty container.
-  Empty = 7,
-  // The provided CAS did not match that of the stored data.
-  CasMismatch = 8,
-  // Returned result was unexpected, e.g. of the incorrect size.
-  ResultMismatch = 9,
-  // Internal failure: trying check logs of the surrounding system.
-  InternalFailure = 10,
-  // The connection/stream/pipe was broken/closed unexpectedly.
-  BrokenConnection = 11,
-}
+export enum LogLevelValues { trace, debug, info, warn, error, critical }
 export enum FilterStatusValues { Continue = 0, StopIteration = 1 }
-export enum FilterHeadersStatusValues { Continue = 0, StopIteration = 1 }
-export enum FilterMetadataStatusValues { Continue = 0 };
+export enum FilterHeadersStatusValues {
+  Continue = 0,
+  StopIteration = 1,
+  ContinueAndEndStream = 2,
+  StopAllIterationAndBuffer = 3,
+  StopAllIterationAndWatermark = 4,
+}
+export enum FilterMetadataStatusValues { Continue = 0 }
 export enum FilterTrailersStatusValues { Continue = 0, StopIteration = 1 }
 export enum FilterDataStatusValues {
   Continue = 0,
@@ -152,6 +139,36 @@ export enum PeerTypeValues {
   Local = 1,
   Remote = 2,
 }
+
+export enum WasmResultValues {
+  Ok = 0,
+  // The result could not be found, e.g. a provided key did not appear in a
+  // table.
+  NotFound = 1,
+  // An argument was bad, e.g. did not not conform to the required range.
+  BadArgument = 2,
+  // A protobuf could not be serialized.
+  SerializationFailure = 3,
+  // A protobuf could not be parsed.
+  ParseFailure = 4,
+  // A provided expression (e.g. "foo.bar") was illegal or unrecognized.
+  BadExpression = 5,
+  // A provided memory range was not legal.
+  InvalidMemoryAccess = 6,
+  // Data was requested from an empty container.
+  Empty = 7,
+  // The provided CAS did not match that of the stored data.
+  CasMismatch = 8,
+  // Returned result was unexpected, e.g. of the incorrect size.
+  ResultMismatch = 9,
+  // Internal failure: trying check logs of the surrounding system.
+  InternalFailure = 10,
+  // The connection/stream/pipe was broken/closed unexpectedly.
+  BrokenConnection = 11,
+  // Feature not implemented.
+  Unimplemented = 12,
+}
+
 export enum HeaderMapTypeValues {
   RequestHeaders = 0,   // During the onLog callback these are immutable
   RequestTrailers = 1,  // During the onLog callback these are immutable
@@ -170,11 +187,21 @@ export enum BufferTypeValues {
   NetworkUpstreamData = 3,   // During the onLog callback these are immutable
   HttpCallResponseBody = 4,  // Immutable
   GrpcReceiveBuffer = 5,     // Immutable
-  MAX = 5,
+  VmConfiguration = 6,       // Immutable
+  PluginConfiguration = 7,   // Immutable
+  CallData = 8,              // Immutable
+  MAX = 8,
 }
 export enum BufferFlagsValues {
   // These must be powers of 2.
   EndOfStream = 1,
+}
+export enum StreamTypeValues {
+  Request = 0,
+  Response = 1,
+  Downstream = 2,
+  Upstream = 3,
+  MAX = 3,
 }
 
 /////////////////// wrappers below
@@ -296,17 +323,15 @@ function deserializeHeaders(headers: ArrayBuffer): Headers {
     let header_value_data = data.slice(dataIndex, dataIndex + valueSize);
     dataIndex += valueSize + 1; // +1 for nil termination.
 
-    let pair = new HeaderPair();
-    pair.key = header_key_data;
-    pair.value = header_value_data;
+    let pair = new HeaderPair(header_key_data, header_value_data);
     result.push(pair);
   }
 
   return result;
 }
 
-export function continue_request(): WasmResultValues { return imports.proxy_continue_request(); }
-export function continue_response(): WasmResultValues { return imports.proxy_continue_response(); }
+export function continue_request(): WasmResultValues { return imports.proxy_continue_stream(StreamTypeValues.Request); }
+export function continue_response(): WasmResultValues { return imports.proxy_continue_stream(StreamTypeValues.Response); }
 export function send_local_response(response_code: u32, response_code_details: string, body: ArrayBuffer,
   additional_headers: Headers, grpc_status: GrpcStatusValues): WasmResultValues {
   let response_code_details_buffer = String.UTF8.encode(response_code_details);
@@ -381,7 +406,6 @@ export function add_header_map_value_string(typ: HeaderMapTypeValues, key: strin
   let value_arr = String.UTF8.encode(value);
   return imports.proxy_add_header_map_value(typ, changetype<usize>(key_arr), key_arr.byteLength, changetype<usize>(value_arr), value_arr.byteLength);
 }
-
 
 class HeaderStreamManipulator {
   typ: HeaderMapTypeValues;
@@ -581,7 +605,6 @@ class Metric {
 }
 
 export class Gauge extends Metric {
-  metric_id: u32;
 
   constructor(name: string) {
     super(MetricTypeValues.Gauge, name);
@@ -596,8 +619,6 @@ export class Gauge extends Metric {
 }
 
 export class Histogram extends Metric {
-  metric_id: u32;
-
   constructor(name: string) {
     super(MetricTypeValues.Histogram, name);
   }
@@ -611,8 +632,6 @@ export class Histogram extends Metric {
 }
 
 export class Counter extends Metric {
-  metric_id: u32;
-
   constructor(name: string) {
     super(MetricTypeValues.Counter, name);
   }
@@ -692,17 +711,13 @@ function setEffectiveContext(_id: u32): WasmResultValues {
  */
 export abstract class BaseContext {
   context_id: u32;
-  onDone_: (thiz: BaseContext) => bool;
-  onDelete_: (thiz: BaseContext) => void;
 
   constructor(context_id_: u32) {
     this.context_id = context_id_;
-    this.onDone_ = (thiz: BaseContext) => { return thiz.onDone(); };
-    this.onDelete_ = (thiz: BaseContext) => { thiz.onDelete(); };
   }
 
   continueRequest(): void {
-    const result = imports.proxy_continue_request();
+    const result = imports.proxy_continue_stream(StreamTypeValues.Request);
     if (result != WasmResultValues.Ok) {
       log(LogLevelValues.critical, "Unable to continue request: " + result.toString());
     }
@@ -745,30 +760,12 @@ class GrpcCallback {
  * configuration that is used in the individual contexts.
  */
 export class RootContext extends BaseContext {
-  // hack to workaround lack of OOP
-  createContext_: (thiz: RootContext, context_id: u32) => Context;
-  validateConfiguration_: (thiz: RootContext, configuration_size: usize) => bool;
-  onConfigure_: (thiz: RootContext, configuration_size: usize) => bool;
-  onStart_: (thiz: RootContext, vm_configuration_size: usize) => bool;
-  onTick_: (thiz: RootContext) => void;
-  done_: (thiz: RootContext) => void;
-  onQueueReady_: (thiz: RootContext, token: u32) => void;
-  onHttpCallResponse_: (thiz: RootContext, token: u32, headers: u32, body_size: u32, trailers: u32) => void;
-
   private configuration_: string = "";
   private http_calls_: Map<u32, HttpCallback> = new Map();
   private grpc_calls_: Map<u32, GrpcCallback> = new Map();
 
   constructor(context_id: u32) {
     super(context_id);
-    this.createContext_ = (thiz: RootContext, context_id: u32) => { return thiz.createContext(context_id); };
-    this.validateConfiguration_ = (thiz: RootContext, configuration_size: usize) => { return thiz.validateConfiguration(configuration_size); };
-    this.onConfigure_ = (thiz: RootContext, configuration_size: usize) => { return thiz.onConfigure(configuration_size); };
-    this.onStart_ = (thiz: RootContext, vm_configuration_size: usize) => { return thiz.onStart(vm_configuration_size); };
-    this.onTick_ = (thiz: RootContext) => { thiz.onTick(); };
-    this.onQueueReady_ = (thiz: RootContext, token: u32) => { thiz.onQueueReady(token); };
-    this.onDone_ = (thiz: BaseContext) => { return (thiz as RootContext).onDone(); };
-    this.onHttpCallResponse_ = (thiz: RootContext, token: u32, headers: u32, body_size: u32, trailers: u32) => { thiz.onHttpCallResponse(token, headers, body_size, trailers); };
   }
 
   getConfiguration(): string {
@@ -777,7 +774,8 @@ export class RootContext extends BaseContext {
 
   // Need to be overloaded on Filter Root Context implementation
   createContext(context_id: u32): Context {
-    return ContextHelper.wrap(new Context(context_id, this));
+    log(LogLevelValues.error, "Base createContext called - this should never happen!");
+    return new Context(context_id, this);
   }
 
   // Cancels all pending http requests. Called automatically on onDone.
@@ -807,9 +805,9 @@ export class RootContext extends BaseContext {
 
   // Called once when the VM loads and once when each hook loads and whenever configuration changes.
   // Returns false if the configuration is invalid.
-  onConfigure(configuration_size: usize): bool { 
+  onConfigure(configuration_size: u32): bool {
     log(LogLevelValues.debug, "context id: " + this.context_id.toString() + ": onConfigure(configuration_size: " + configuration_size.toString() + ")");
-    CHECK_RESULT(imports.proxy_get_configuration(globalArrayBufferReference.bufferPtr(), configuration_size));
+    CHECK_RESULT(imports.proxy_get_buffer_bytes(BufferTypeValues.PluginConfiguration, 0, configuration_size, globalArrayBufferReference.bufferPtr(), configuration_size));
     this.configuration_ = String.UTF8.decode(globalArrayBufferReference.toArrayBuffer());
     log(LogLevelValues.debug, "context id: " + this.context_id.toString() + ": Updating this.configuration=" + this.configuration_);
     return true;
@@ -883,7 +881,6 @@ export class RootContext extends BaseContext {
     }
   }
 
-  on_grpc_create_initial_metadata(token: u32, headers: u32): void { }
   on_grpc_receive_initial_metadata(token: u32, headers: u32): void { }
   on_grpc_trailing_metadata(token: u32, trailers: u32): void { }
   on_grpc_receive(token: u32, response_size: u32): void { }
@@ -916,38 +913,9 @@ export class Context extends BaseContext {
 
   root_context: RootContext;
   
-  onNewConnection_: (thiz: Context) => FilterStatusValues;
-  onDownstreamData_: (thiz: Context, size: usize, end: bool) => FilterStatusValues;
-  onUpstreamData_: (thiz: Context, size: usize, end: bool) => FilterStatusValues;
-  onDownstreamConnectionClose_: (thiz: Context, t: PeerTypeValues) => void;
-  onUpstreamConnectionClose_: (thiz: Context, t: PeerTypeValues) => void;
-  onRequestHeaders_: (thiz: Context, a: u32) => FilterHeadersStatusValues;
-  onRequestMetadata_: (thiz: Context, a: u32) => FilterMetadataStatusValues;
-  onRequestBody_: (thiz: Context, body_buffer_length: usize, end_of_stream: bool) => FilterDataStatusValues;
-  onRequestTrailers_: (thiz: Context, a: u32) => FilterTrailersStatusValues;
-  onResponseHeaders_: (thiz: Context, a: u32) => FilterHeadersStatusValues;
-  onResponseMetadata_: (thiz: Context, a: u32) => FilterMetadataStatusValues;
-  onResponseBody_: (thiz: Context, body_buffer_length: usize, end_of_stream: bool) => FilterDataStatusValues;
-  onResponseTrailers_: (thiz: Context, s: u32) => FilterTrailersStatusValues;
-  onLog_: (thiz: Context) => void;
-
   constructor(context_id_:u32, root_context: RootContext) {
     super(context_id_);
     this.root_context = root_context;
-    this.onNewConnection_ = (thiz: Context) => { return thiz.onNewConnection(); }
-    this.onDownstreamData_ = (thiz: Context, size: usize, end: bool) => { return thiz.onDownstreamData(size, end); }
-    this.onUpstreamData_ = (thiz: Context, size: usize, end: bool) => { return thiz.onUpstreamData(size, end); }
-    this.onDownstreamConnectionClose_ = (thiz: Context, t: PeerTypeValues) => { thiz.onDownstreamConnectionClose(t); }
-    this.onUpstreamConnectionClose_ = (thiz: Context, t: PeerTypeValues) => { thiz.onUpstreamConnectionClose(t); }
-    this.onRequestHeaders_ = (thiz: Context, a: u32) => { return thiz.onRequestHeaders(a); }
-    this.onRequestMetadata_ = (thiz: Context, a: u32) => { return thiz.onRequestMetadata(a); }
-    this.onRequestBody_ = (thiz: Context, body_buffer_length: usize, end_of_stream: bool) => { return thiz.onRequestBody(body_buffer_length, end_of_stream); }
-    this.onRequestTrailers_ = (thiz: Context, a: u32) => { return thiz.onRequestTrailers(a); }
-    this.onResponseHeaders_ = (thiz: Context, a: u32) => { return thiz.onResponseHeaders(a); }
-    this.onResponseMetadata_ = (thiz: Context, a: u32) => { return thiz.onResponseMetadata(a); }
-    this.onResponseBody_ = (thiz: Context, body_buffer_length: usize, end_of_stream: bool) => { return thiz.onResponseBody(body_buffer_length, end_of_stream); }
-    this.onResponseTrailers_ = (thiz: Context, s: u32) => { return thiz.onResponseTrailers(s); }
-    this.onLog_ = (thiz: Context) => { thiz.onLog(); }
   }
 
   createContext(): Context {
@@ -978,11 +946,11 @@ export class Context extends BaseContext {
     log(LogLevelValues.debug, "context id: " + this.context_id.toString() + ": onUpstreamConnectionClose(t: " + t.toString() + ")");
   }
 
-  onRequestHeaders(a: u32): FilterHeadersStatusValues { return FilterHeadersStatusValues.Continue }
+  onRequestHeaders(a: u32, end_of_stream: bool): FilterHeadersStatusValues { return FilterHeadersStatusValues.Continue }
   onRequestMetadata(a: u32): FilterMetadataStatusValues { return FilterMetadataStatusValues.Continue }
   onRequestBody(body_buffer_length: usize, end_of_stream: bool): FilterDataStatusValues { return FilterDataStatusValues.Continue }
   onRequestTrailers(a: u32): FilterTrailersStatusValues { return FilterTrailersStatusValues.Continue }
-  onResponseHeaders(a: u32): FilterHeadersStatusValues { return FilterHeadersStatusValues.Continue }
+  onResponseHeaders(a: u32, end_of_stream: bool): FilterHeadersStatusValues { return FilterHeadersStatusValues.Continue }
   onResponseMetadata(a: u32): FilterMetadataStatusValues { return FilterMetadataStatusValues.Continue }
   onResponseBody(body_buffer_length: usize, end_of_stream: bool): FilterDataStatusValues { return FilterDataStatusValues.Continue }
   onResponseTrailers(s: u32): FilterTrailersStatusValues { return FilterTrailersStatusValues.Continue }
@@ -1039,7 +1007,7 @@ export function ensureContext(context_id: u32, root_context_id: u32): void {
     return;
   }
   log(LogLevelValues.debug, "Registering new context with context_id: " + context_id.toString() + " under root_context: " + root_context_id.toString());
-  let context = root_context.createContext_(root_context, context_id);
+  let context = root_context.createContext(context_id);
   context_map.set(context_id, context);
   log(LogLevelValues.debug, "Updated context_map: " + context_map.keys().join(", "));
 }
@@ -1056,67 +1024,6 @@ export function getRootContext(context_id: u32): RootContext {
 
 export function deleteContext(context_id: u32): void {
   context_map.delete(context_id);
-}
-
-/**
- * Because asm script doest support virtual functions, we need to wrap root contexts with this wrapper.
- * this wrapper manually implements virtual functions. Use it via the wrap class method.
- * once asm script is updated to support virtual functions this will become a no-op.
- */
-export class RootContextHelper<T extends RootContext> extends RootContext {
-  static wrap<T extends RootContext>(that: T): RootContext {
-    return new RootContextHelper<T>(that);
-  }
-  that: T;
-  constructor(that: T) {
-    super(that.context_id);
-    this.that = that;
-    // OOP HACK
-    this.createContext_ = (thiz: RootContext, context_id: u32) => { return (thiz as RootContextHelper<T>).that.createContext(context_id); };
-    this.validateConfiguration_ = (thiz: RootContext, configuration_size: usize) => { return (thiz as RootContextHelper<T>).that.validateConfiguration(configuration_size); };
-    this.onConfigure_ = (thiz: RootContext, configuration_size: usize) => { return (thiz as RootContextHelper<T>).that.onConfigure(configuration_size); };
-    this.onStart_ = (thiz: RootContext, vm_configuration_size: usize) => { return (thiz as RootContextHelper<T>).that.onStart(vm_configuration_size); };
-    this.onTick_ = (thiz: RootContext) => { (thiz as RootContextHelper<T>).that.onTick(); };
-    this.onQueueReady_ = (thiz: RootContext, token: u32) => { (thiz as RootContextHelper<T>).that.onQueueReady(token); };
-    this.onDone_ = (thiz: BaseContext) => { return (thiz as RootContextHelper<T>).that.onDone(); };
-    this.done_ = (thiz: RootContext) => { (thiz as RootContextHelper<T>).that.done(); };
-    this.onDelete_ = (thiz: BaseContext) => { (thiz as RootContextHelper<T>).that.onDelete(); };
-    this.onHttpCallResponse_ = (thiz: BaseContext, token: u32, headers: u32, body_size: u32, trailers: u32) => { (thiz as RootContextHelper<T>).that.onHttpCallResponse(token, headers, body_size, trailers); };
-  }
-
-}
-
-/**
- * Because asm script doest support virtual functions, we need to wrap contexts with this wrapper.
- * this wrapper manually implements virtual functions. Use it via the wrap class method.
- * once asm script is updated to support virtual functions this will become a no-op.
- */
-export class ContextHelper<T extends Context> extends Context {
-  static wrap<T extends Context>(that: T): Context {
-    return new ContextHelper<T>(that);
-  }
-  that: T;
-  constructor(that: T) {
-    super(that.context_id, that.root_context);
-    this.that = that;
-    // OOP HACK - till asm script supports proper oop we have to do this
-    this.onNewConnection_ = (thiz: Context) => { return (thiz as ContextHelper<T>).that.onNewConnection(); }
-    this.onDownstreamData_ = (thiz: Context, size: usize, end: bool) => { return (thiz as ContextHelper<T>).that.onDownstreamData(size, end); }
-    this.onUpstreamData_ = (thiz: Context, size: usize, end: bool) => { return (thiz as ContextHelper<T>).that.onUpstreamData(size, end); }
-    this.onDownstreamConnectionClose_ = (thiz: Context, t: PeerTypeValues) => { (thiz as ContextHelper<T>).that.onDownstreamConnectionClose(t); }
-    this.onUpstreamConnectionClose_ = (thiz: Context, t: PeerTypeValues) => { (thiz as ContextHelper<T>).that.onUpstreamConnectionClose(t); }
-    this.onRequestHeaders_ = (thiz: Context, a: u32) => { return (thiz as ContextHelper<T>).that.onRequestHeaders(a); }
-    this.onRequestMetadata_ = (thiz: Context, a: u32) => { return (thiz as ContextHelper<T>).that.onRequestMetadata(a); }
-    this.onRequestBody_ = (thiz: Context, body_buffer_length: usize, end_of_stream: bool) => { return (thiz as ContextHelper<T>).that.onRequestBody(body_buffer_length, end_of_stream); }
-    this.onRequestTrailers_ = (thiz: Context, a: u32) => { return (thiz as ContextHelper<T>).that.onRequestTrailers(a); }
-    this.onResponseHeaders_ = (thiz: Context, a: u32) => { return (thiz as ContextHelper<T>).that.onResponseHeaders(a); }
-    this.onResponseMetadata_ = (thiz: Context, a: u32) => { return (thiz as ContextHelper<T>).that.onResponseMetadata(a); }
-    this.onResponseBody_ = (thiz: Context, body_buffer_length: usize, end_of_stream: bool) => { return (thiz as ContextHelper<T>).that.onResponseBody(body_buffer_length, end_of_stream); }
-    this.onResponseTrailers_ = (thiz: Context, s: u32) => { return (thiz as ContextHelper<T>).that.onResponseTrailers(s); }
-    this.onDone_ = (thiz: BaseContext) => { return (thiz as ContextHelper<T>).that.onDone(); }
-    this.onLog_ = (thiz: Context) => { (thiz as ContextHelper<T>).that.onLog(); }
-    this.onDelete_ = (thiz: BaseContext) => { (thiz as ContextHelper<T>).that.onDelete(); }
-  }
 }
 
 /**
