@@ -1,12 +1,12 @@
 {
   "scripts": {
-    "asbuild:untouched": "asc assembly/index.ts -b build/untouched.wasm -t build/untouched.wat --validate --use abort=abort_proc_exit --sourceMap --debug",
-    "asbuild:optimized": "asc assembly/index.ts -b build/optimized.wasm -t build/optimized.wat --validate --use abort=abort_proc_exit --sourceMap --optimize",
+    "asbuild:untouched": "asc assembly/index.ts -b build/untouched.wasm -t build/untouched.wat --use abort=abort_proc_exit --sourceMap --debug",
+    "asbuild:optimized": "asc assembly/index.ts -b build/optimized.wasm -t build/optimized.wat --use abort=abort_proc_exit --sourceMap --optimize",
     "asbuild": "npm run asbuild:untouched && npm run asbuild:optimized",
     "test": "node tests"
   },
   "dependencies": {
-    "@assemblyscript/loader": "^0.9.4",
+    "assemblyscript": "^0.14.8",
     "@solo-io/proxy-runtime": "file:../.."
   },
   "devDependencies": {

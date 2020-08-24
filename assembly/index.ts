@@ -1,5 +1,5 @@
 export {
-    BaseContext, RootContext, Context, RootContextHelper, ContextHelper, registerRootContext,
+    BaseContext, RootContext, Context, registerRootContext,
     LogLevelValues, WasmResultValues, GrpcStatusValues,
     FilterStatusValues,
     FilterHeadersStatusValues,

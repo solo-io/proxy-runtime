@@ -10,21 +10,18 @@ export type PeerType = i32;
 export type HeaderMapType = i32;
 export type BufferType = i32;
 export type BufferFlags = i32;
+export type StreamType = i32;
 
-// Configuration and Status
-// @ts-ignore: decorator
-@external("env", "proxy_get_configuration")
-export declare function proxy_get_configuration(configuration_ptr: ptr<ptr<char>>, configuration_size: ptr<usize>): WasmResult;
-
-// Logging
-// @ts-ignore: decorator
-@external("env", "proxy_log")
-export declare function proxy_log(level: LogLevel, logMessage: ptr<char>, messageSize: size_t): WasmResult;
 
 // @ts-ignore: decorator
 @external("env", "proxy_get_status")
 // Results status details for any previous ABI call and onGrpcClose.
 export declare function proxy_get_status(status_code_ptr: ptr<u32>, message_ptr: ptr<ptr<char>>, message_size: ptr<usize>): u32;
+
+// Logging
+// @ts-ignore: decorator
+@external("env", "proxy_log")
+export declare function proxy_log(level: LogLevel, logMessage: ptr<char>, messageSize: size_t): WasmResult;
 
 // Timer (must be called from a root context, e.g. onStart, onTick).
 // @ts-ignore: decorator
@@ -47,11 +44,11 @@ export declare function proxy_set_property(path_ptr: ptr<char>, path_size: size_
 
 // Continue/Reply/Route
 // @ts-ignore: decorator
-@external("env", "proxy_continue_request")
-export declare function proxy_continue_request(): WasmResult;
+@external("env", "proxy_continue_stream")
+export declare function proxy_continue_stream(stream_type: StreamType): WasmResult;
 // @ts-ignore: decorator
-@external("env", "proxy_continue_response")
-export declare function proxy_continue_response(): WasmResult;
+@external("env", "proxy_close_stream")
+export declare function proxy_close_stream(stream_type: StreamType): WasmResult;
 // @ts-ignore: decorator
 @external("env", "proxy_send_local_response")
 export declare function proxy_send_local_response(response_code: u32, response_code_details_ptr: ptr<char>,
@@ -125,6 +122,10 @@ export declare function proxy_get_buffer_bytes(typ: BufferType, start: u32, leng
 @external("env", "proxy_get_buffer_status")
 export declare function proxy_get_buffer_status(typ: BufferType, length_ptr: ptr<usize>, flags_ptr: ptr<u32>): WasmResult;
 
+// @ts-ignore: decorator
+@external("env", "proxy_get_buffer_status")
+export declare function proxy_set_buffer_status(typ: BufferType, start: u32, length: u32, data: ptr<char>, size: size_t): WasmResult;
+
 // HTTP
 // @ts-ignore: decorator
 @external("env", "proxy_http_call")
@@ -167,3 +168,9 @@ export declare function proxy_set_effective_context(effective_context_id: u32): 
 // @ts-ignore: decorator
 @external("env", "proxy_done")
 export declare function proxy_done(): WasmResult;
+// @ts-ignore: decorator
+@external("env", "proxy_call_foreign_function")
+export declare function proxy_call_foreign_function(function_name: ptr<char>,
+  name_size: size_t, arguments: ptr<char>,
+  arguments_size: size_t, results: ptr<ptr<char>>,
+  results_size: ptr<size_t>): WasmResult;
