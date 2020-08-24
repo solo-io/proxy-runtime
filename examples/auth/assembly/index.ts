@@ -18,10 +18,10 @@ class Auth extends Context {
     super(context_id, root_context);
   }
 
-  onRequestHeaders(a: u32, end_of_stream:bool): FilterHeadersStatusValues {
+  onRequestHeaders(a: u32, end_of_stream: bool): FilterHeadersStatusValues {
     log(LogLevelValues.debug, "onRequestHeaders called!");
     let cluster = this.root_context.getConfiguration();
-    log(LogLevelValues.debug, "onRequestHeaders called!"+cluster);
+    log(LogLevelValues.debug, "onRequestHeaders called!" + cluster);
     // make an http call to the auth cluster
     let result = this.root_context.httpCall(cluster,
       // provide the auth cluster our headers, so it can make an auth decision.
@@ -42,7 +42,7 @@ class Auth extends Context {
           // if we have a response, allow the request if we have a 200
           log(LogLevelValues.debug, "callback called!");
           let status = stream_context.headers.http_callback.get(":status");
-          log(LogLevelValues.debug, "status:" + status+", headers: " + headers.toString() + ", body_size: " + body_size.toString() + ", trailers: " + trailers.toString());
+          log(LogLevelValues.debug, "status:" + status + ", headers: " + headers.toString() + ", body_size: " + body_size.toString() + ", trailers: " + trailers.toString());
           if (status == "200") {
             allow = true;
           }
