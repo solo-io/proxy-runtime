@@ -12,8 +12,8 @@ npx asinit .
 
 add `--use abort=abort_proc_exit` to the `asc` in packages.json. for example:
 ```json
-    "asbuild:untouched": "asc assembly/index.ts -b build/untouched.wasm --use abort=abort_proc_exit -t build/untouched.wat --sourceMap http://127.0.0.1:8081/build/untouched.wasm.map --validate --debug",
-    "asbuild:optimized": "asc assembly/index.ts -b build/optimized.wasm --use abort=abort_proc_exit -t build/optimized.wat --sourceMap --validate --optimize",
+    "asbuild:untouched": "asc assembly/index.ts -b build/untouched.wasm --use abort=abort_proc_exit -t build/untouched.wat --sourceMap http://127.0.0.1:8081/build/untouched.wasm.map --debug",
+    "asbuild:optimized": "asc assembly/index.ts -b build/optimized.wasm --use abort=abort_proc_exit -t build/optimized.wat --sourceMap --optimize",
 ```
 
 Add `"@solo-io/proxy-runtime": "file:/home/yuval/Projects/solo/proxy-assemblyscript"` to your dependencies.
@@ -29,25 +29,20 @@ Just include the `@solo-io/proxy-runtime` package.
 Copy this into assembly/index.ts:
 
 ```ts
-
 export * from "@solo-io/proxy-runtime/proxy"; // this exports the required functions for the proxy to interact with us.
-import { RootContext, Context, RootContextHelper, ContextHelper, registerRootContext, FilterHeadersStatusValues, stream_context } from "@solo-io/proxy-runtime";
+import { RootContext, Context, registerRootContext, FilterHeadersStatusValues, stream_context } from "@solo-io/proxy-runtime";
 
 class AddHeaderRoot extends RootContext {
-  configuration : string;
-
   createContext(context_id: u32): Context {
-    return ContextHelper.wrap(new AddHeader(context_id, this));
+    return new AddHeader(context_id, this);
   }
 }
 
 class AddHeader extends Context {
-  root_context : AddHeaderRoot;
-  constructor(context_id: u32, root_context:AddHeaderRoot){
+  constructor(context_id: u32, root_context: AddHeaderRoot) {
     super(context_id, root_context);
-    this.root_context = root_context;
   }
-  onResponseHeaders(a: u32): FilterHeadersStatusValues {
+  onResponseHeaders(a: u32, end_of_stream: bool): FilterHeadersStatusValues {
     const root_context = this.root_context;
     if (root_context.getConfiguration() == "") {
       stream_context.headers.response.add("hello", "world!");
@@ -58,7 +53,7 @@ class AddHeader extends Context {
   }
 }
 
-registerRootContext((context_id: u32) => { return RootContextHelper.wrap(new AddHeaderRoot(context_id)); }, "add_header");
+registerRootContext((context_id: u32) => { return new AddHeaderRoot(context_id); }, "add_header");
 ```
 ## build
 
