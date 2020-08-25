@@ -7,7 +7,7 @@
     "docs": "typedoc --out ./docs assembly --ignoreCompilerErrors --name 'AssemblyScript Proxy Runtime'"
   },
   "devDependencies": {
-    "assemblyscript": "^0.14.8",
+    "assemblyscript": "^0.14.9",
     "http-server": "^0.12.3",
     "local-web-server": "^3.0.7",
     "minimist": ">=1.2.2",
