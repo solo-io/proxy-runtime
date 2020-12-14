@@ -1,7 +1,7 @@
 
 export * from "@solo-io/proxy-runtime/proxy"; // this exports the required functions for the proxy to interact with us.
 //this.setEffectiveContext(callback.origin_context_id);
-import { RootContext, Context, registerRootContext, Headers, log, LogLevelValues, HeaderPair, FilterHeadersStatusValues, FilterDataStatusValues, FilterTrailersStatusValues, GrpcStatusValues, WasmResultValues, stream_context, send_local_response, continue_request } from "@solo-io/proxy-runtime";
+import { RootContext, Context, BaseContext, registerRootContext, Headers, log, LogLevelValues, HeaderPair, FilterHeadersStatusValues, FilterDataStatusValues, FilterTrailersStatusValues, GrpcStatusValues, WasmResultValues, stream_context, send_local_response, continue_request } from "@solo-io/proxy-runtime";
 
 class AuthRoot extends RootContext {
 
@@ -28,13 +28,13 @@ class Auth extends Context {
       stream_context.headers.request.get_headers(),
       // no need for body or trailers
       new ArrayBuffer(0), [],
-      // 1 second timout
+      // 1 second timeout
       1000,
       // pass us, so that the callback receives us back.
       // once AssemblyScript supports closures, this will not be needed.
       this,
       // http callback: called when there's a response. if the request failed, headers will be 0
-      (origin_context: Context, headers: u32, body_size: usize, trailers: u32) => {
+      (origin_context: BaseContext, headers: u32, body_size: usize, trailers: u32) => {
         let context = origin_context as Auth;
         let allow = false;
 
@@ -75,6 +75,11 @@ class Auth extends Context {
     return FilterHeadersStatusValues.StopIteration;
   }
 
+  onResponseHeaders(headers: u32, end_of_stream: bool): FilterHeadersStatusValues {
+    log(LogLevelValues.info, "response headers");
+    stream_context.headers.response.add("hello", "wasm!");
+    return FilterHeadersStatusValues.Continue;
+  }
 
   onRequestBody(body_buffer_length: usize, end_of_stream: bool): FilterDataStatusValues {
     // Only pass upstream if allowed

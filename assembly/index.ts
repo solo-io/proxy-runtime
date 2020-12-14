@@ -6,7 +6,7 @@ export {
     FilterMetadataStatusValues,
     FilterTrailersStatusValues,
     FilterDataStatusValues, stream_context,
-    HeaderPair, Headers,
+    HeaderPair, Headers, makeHeaderPair,
     Gauge, Histogram, Counter, log,
     HttpCallback, send_local_response, continue_request, continue_response, proxy_set_effective_context
 } from "./runtime";

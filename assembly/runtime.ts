@@ -71,6 +71,7 @@ class ArrayBufferReference {
 
 var globalArrayBufferReference = new ArrayBufferReference();
 let globalU32Ref = new Reference<u32>();
+let globalLogLevelRef = new Reference<imports.LogLevel>();
 let globalU64Ref = new Reference<u64>();
 let globalUsizeRef = new Reference<usize>();
 
@@ -86,6 +87,12 @@ export class HeaderPair {
     this.key = header_key_data;
     this.value = header_value_data;
   }
+}
+
+export function makeHeaderPair(key: string, value: string) : HeaderPair {
+  let key_arr = String.UTF8.encode(key);
+  let value_arr = String.UTF8.encode(value);
+  return new HeaderPair(key_arr, value_arr);
 }
 
 export type Headers = Array<HeaderPair>;
@@ -214,6 +221,11 @@ export function log(level: LogLevelValues, logMessage: string): void {
   imports.proxy_log(level as imports.LogLevel, changetype<usize>(buffer), buffer.byteLength);
 }
 
+export function logLevel(): LogLevelValues {
+  let level = globalLogLevelRef;
+  CHECK_RESULT(imports.proxy_get_log_level(level.ptr()));
+  return level.data;
+}
 
 class StatusWithData {
   status: u32;
@@ -850,7 +862,7 @@ export class RootContext extends BaseContext {
    * @param timeout_milliseconds Timeout for the request, in milliseconds.
    * @param cb Callback to be invoked when the request is complete.
    */
-  httpCall(cluster: string, headers: Headers, body: ArrayBuffer, trailers: Headers, timeout_milliseconds: u32, origin_context: BaseContext, cb: (origin_context: Context, headers: u32, body_size: usize, trailers: u32) => void): WasmResultValues {
+  httpCall(cluster: string, headers: Headers, body: ArrayBuffer, trailers: Headers, timeout_milliseconds: u32, origin_context: BaseContext, cb: (origin_context: BaseContext, headers: u32, body_size: usize, trailers: u32) => void): WasmResultValues {
     log(LogLevelValues.debug, "context id: " + this.context_id.toString() + ": httpCall(cluster: " + cluster + ", headers:" + headers.toString() + ", body:" + body.toString() + ", trailers:" + trailers.toString() + ")");
     let buffer = String.UTF8.encode(cluster);
     let header_pairs = serializeHeaders(headers);
