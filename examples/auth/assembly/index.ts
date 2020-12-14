@@ -1,7 +1,7 @@
 
 export * from "@solo-io/proxy-runtime/proxy"; // this exports the required functions for the proxy to interact with us.
 //this.setEffectiveContext(callback.origin_context_id);
-import { RootContext, Context, registerRootContext, Headers, log, LogLevelValues, HeaderPair, FilterHeadersStatusValues, FilterDataStatusValues, FilterTrailersStatusValues, GrpcStatusValues, WasmResultValues, stream_context, send_local_response, continue_request } from "@solo-io/proxy-runtime";
+import { RootContext, Context, BaseContext, registerRootContext, Headers, log, LogLevelValues, HeaderPair, FilterHeadersStatusValues, FilterDataStatusValues, FilterTrailersStatusValues, GrpcStatusValues, WasmResultValues, stream_context, send_local_response, continue_request } from "@solo-io/proxy-runtime";
 
 class AuthRoot extends RootContext {
 
@@ -34,7 +34,7 @@ class Auth extends Context {
       // once AssemblyScript supports closures, this will not be needed.
       this,
       // http callback: called when there's a response. if the request failed, headers will be 0
-      (origin_context: Context, headers: u32, body_size: usize, trailers: u32) => {
+      (origin_context: BaseContext, headers: u32, body_size: usize, trailers: u32) => {
         let context = origin_context as Auth;
         let allow = false;
 
