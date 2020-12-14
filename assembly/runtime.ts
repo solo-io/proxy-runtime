@@ -354,27 +354,28 @@ export function send_local_response(response_code: u32, response_code_details: s
 
 
 export function clear_route_cache(): WasmResultValues { return imports.proxy_clear_route_cache(); }
-
-export function get_shared_data(key: string, value: ArrayBuffer/*, cas*/): WasmResultValues {
-  const key_buffer = String.UTF8.encode(key);
-  let dummy = globalUsizeRef;
-  return imports.proxy_get_shared_data(changetype<usize>(key_buffer), key_buffer.byteLength, changetype<usize>(value), value.byteLength, dummy.ptr());
-}
-
-class SetSharedData {
-  value: ArrayBuffer;
+class GetSharedData {
+  value: ArrayBuffer|null;
   result: WasmResultValues;
+  cas: u32;
 }
-export function set_shared_data(key: string/*, cas*/): SetSharedData {
+
+export function get_shared_data(key: string): GetSharedData {
   const key_buffer = String.UTF8.encode(key);
-  let dummy = globalUsizeRef;
-  let value = globalArrayBufferReference;
-  let result = new SetSharedData();
-  result.result = imports.proxy_set_shared_data(changetype<usize>(key_buffer), key_buffer.byteLength, value.bufferPtr(), value.sizePtr(), dummy.ptr())
+  let cas = globalUsizeRef;
+  let data = globalArrayBufferReference;
+  let result = new GetSharedData();
+  result.result =  imports.proxy_get_shared_data(changetype<usize>(key_buffer), key_buffer.byteLength, data.bufferPtr(), data.sizePtr(), cas.ptr());
   if (result.result == WasmResultValues.Ok) {
-    result.value = value.toArrayBuffer();
+    result.value = data.toArrayBuffer();
+    result.cas = cas.data;
   }
   return result;
+}
+
+export function set_shared_data(key: string, value: ArrayBuffer, cas : u32 = 0): WasmResultValues {
+  const key_buffer = String.UTF8.encode(key);
+  return imports.proxy_set_shared_data(changetype<usize>(key_buffer), key_buffer.byteLength, changetype<usize>(value), value.byteLength, cas);
 }
 
 export function register_shared_queue(queue_name: string, token: u32): WasmResultValues {
