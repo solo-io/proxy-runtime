@@ -71,6 +71,7 @@ class ArrayBufferReference {
 
 var globalArrayBufferReference = new ArrayBufferReference();
 let globalU32Ref = new Reference<u32>();
+let globalLogLevelRef = new Reference<imports.LogLevel>();
 let globalU64Ref = new Reference<u64>();
 let globalUsizeRef = new Reference<usize>();
 
@@ -220,6 +221,11 @@ export function log(level: LogLevelValues, logMessage: string): void {
   imports.proxy_log(level as imports.LogLevel, changetype<usize>(buffer), buffer.byteLength);
 }
 
+export function logLevel(): LogLevelValues {
+  let level = globalLogLevelRef;
+  CHECK_RESULT(imports.proxy_get_log_level(level.ptr()));
+  return level.data;
+}
 
 class StatusWithData {
   status: u32;
