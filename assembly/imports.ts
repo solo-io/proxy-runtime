@@ -22,6 +22,9 @@ export declare function proxy_get_status(status_code_ptr: ptr<u32>, message_ptr:
 // @ts-ignore: decorator
 @external("env", "proxy_log")
 export declare function proxy_log(level: LogLevel, logMessage: ptr<char>, messageSize: size_t): WasmResult;
+// @ts-ignore: decorator
+@external("env", "proxy_get_log_level")
+export declare function proxy_get_log_level(status_code_ptr: ptr<LogLevel>): WasmResult;
 
 // Timer (must be called from a root context, e.g. onStart, onTick).
 // @ts-ignore: decorator

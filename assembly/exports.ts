@@ -10,7 +10,7 @@ type GrpcStatus = i32;
 type WasmOnDoneResult = u32;
 
 // Calls in.
-export function proxy_abi_version_0_2_0(): void { }
+export function proxy_abi_version_0_2_1(): void { }
 
 export function proxy_on_vm_start(root_context_id: u32, configuration_size: u32): u32 {
   let root_context = getRootContext(root_context_id);
