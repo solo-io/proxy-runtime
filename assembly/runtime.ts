@@ -89,6 +89,12 @@ export class HeaderPair {
   }
 }
 
+export function makeHeaderPair(key: string, value: string) : HeaderPair {
+  let key_arr = String.UTF8.encode(key);
+  let value_arr = String.UTF8.encode(value);
+  return new HeaderPair(key_arr, value_arr);
+}
+
 export type Headers = Array<HeaderPair>;
 
 
@@ -856,7 +862,7 @@ export class RootContext extends BaseContext {
    * @param timeout_milliseconds Timeout for the request, in milliseconds.
    * @param cb Callback to be invoked when the request is complete.
    */
-  httpCall(cluster: string, headers: Headers, body: ArrayBuffer, trailers: Headers, timeout_milliseconds: u32, origin_context: BaseContext, cb: (origin_context: Context, headers: u32, body_size: usize, trailers: u32) => void): WasmResultValues {
+  httpCall(cluster: string, headers: Headers, body: ArrayBuffer, trailers: Headers, timeout_milliseconds: u32, origin_context: BaseContext, cb: (origin_context: BaseContext, headers: u32, body_size: usize, trailers: u32) => void): WasmResultValues {
     log(LogLevelValues.debug, "context id: " + this.context_id.toString() + ": httpCall(cluster: " + cluster + ", headers:" + headers.toString() + ", body:" + body.toString() + ", trailers:" + trailers.toString() + ")");
     let buffer = String.UTF8.encode(cluster);
     let header_pairs = serializeHeaders(headers);
