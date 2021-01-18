@@ -1,4 +1,4 @@
-import { getBaseContext, getContext, getRootContext, ensureContext, ensureRootContext, deleteContext } from "./runtime";
+import { getBaseContext, getContext, getRootContext, ensureContext, ensureRootContext, deleteContext, PeerTypeValues } from "./runtime";
 
 ///// CALLS IN
 type FilterStatus = i32;
@@ -94,6 +94,28 @@ export function proxy_on_grpc_receive(context_id: u32, token: u32, response_size
 }
 export function proxy_on_grpc_close(context_id: u32, token: u32, status_code: u32): void {
   getRootContext(context_id).on_grpc_close(token, status_code)
+}
+
+// NETWORK_FILTER support (TCP and, perhaps one day, UDP).
+export function proxy_on_downstream_data(context_id: u32, body_buffer_length: u32, end_of_stream: u32): FilterStatus {
+    let ctx = getContext(context_id);
+    return ctx.onDownstreamData(body_buffer_length, end_of_stream != 0) as FilterStatus;
+}
+export function proxy_on_upstream_data(context_id: u32, body_buffer_length: u32, end_of_stream: u32): FilterStatus {
+    let ctx = getContext(context_id);
+    return ctx.onUpstreamData(body_buffer_length, end_of_stream != 0) as FilterStatus;
+}
+export function proxy_on_upstream_connection_close(context_id: u32, peer_type: u32): void {
+    let ctx = getContext(context_id);
+    ctx.onUpstreamConnectionClose(peer_type as PeerTypeValues);
+}
+export function proxy_on_downstream_connection_close(context_id: u32, peer_type: u32): void {
+    let ctx = getContext(context_id);
+    ctx.onDownstreamConnectionClose(peer_type as PeerTypeValues);
+}
+export function proxy_on_new_connection(context_id: u32): FilterStatus {
+    let ctx = getContext(context_id);
+    return ctx.onNewConnection() as FilterStatus;
 }
 
 // The stream/vm has completed.
