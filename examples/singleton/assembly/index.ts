@@ -12,6 +12,7 @@ class AuthSingleton extends RootContext {
 
   onConfigure(configuration_size: u32): bool {
     super.onConfigure(configuration_size);
+    log(LogLevelValues.info, "singleton onConfigure! ");
     set_tick_period_milliseconds(1000);
     return true
   }
@@ -26,7 +27,7 @@ class AuthSingleton extends RootContext {
     h.push(makeHeaderPair(":method", "GET"));
     h.push(makeHeaderPair(":authority", "foo"));
     let cluster = this.getConfiguration();
-    log(LogLevelValues.info, "singleton onConfigure! "+cluster);
+    log(LogLevelValues.info, "singleton updateConfig! "+cluster);
 
     let result = this.httpCall(cluster,
       // provide the auth cluster our headers, so it can make an auth decision.
@@ -103,3 +104,6 @@ class Auth extends Context {
 
 registerRootContext((context_id: u32) => { return new AuthRoot(context_id); }, "auth");
 registerRootContext((context_id: u32) => { return new AuthSingleton(context_id); }, "auth_singleton");
+
+// Test by curling with foo header:
+// curl localhost:8080/ -H"x-auth: foo"
