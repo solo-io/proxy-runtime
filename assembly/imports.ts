@@ -125,10 +125,6 @@ export declare function proxy_get_buffer_bytes(typ: BufferType, start: u32, leng
 @external("env", "proxy_get_buffer_status")
 export declare function proxy_get_buffer_status(typ: BufferType, length_ptr: ptr<usize>, flags_ptr: ptr<u32>): WasmResult;
 
-// @ts-ignore: decorator
-@external("env", "proxy_get_buffer_status")
-export declare function proxy_set_buffer_status(typ: BufferType, start: u32, length: u32, data: ptr<char>, size: size_t): WasmResult;
-
 // HTTP
 // @ts-ignore: decorator
 @external("env", "proxy_http_call")
