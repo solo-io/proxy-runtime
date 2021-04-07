@@ -12,4 +12,3 @@ spec:
   proxyNames:
   - gateway-proxy
   useProxyProto: false
-EOF
