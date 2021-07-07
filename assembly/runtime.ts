@@ -706,6 +706,25 @@ export function proxy_set_effective_context(_id: u32): WasmResultValues {
   }
   return result;
 }
+
+/**
+ * Call foreign function with the specified name and argument
+ * @param function_name the function name
+ * @param argument the parameters
+ */
+export function call_foreign_function(function_name: string, argument: string): ArrayBuffer {
+  let function_name_buffer = String.UTF8.encode(function_name);
+  let argument_name_buffer = String.UTF8.encode(argument);
+
+  CHECK_RESULT(imports.proxy_call_foreign_function(
+      changetype<usize>(function_name_buffer),
+      function_name_buffer.byteLength,
+      changetype<usize>(argument_name_buffer),
+      argument_name_buffer.byteLength,
+      globalArrayBufferReference.bufferPtr(),
+      globalArrayBufferReference.sizePtr()));
+  return globalArrayBufferReference.toArrayBuffer();
+}
 /////// runtime support
 
 /**
