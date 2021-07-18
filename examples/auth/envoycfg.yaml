@@ -29,12 +29,12 @@ static_resources:
               '@type': type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
               config:
                 name: "auth"
+                # root_id MUST match registerRootContext() 2nd param
                 root_id: "auth"
                 # 'configuration' available at root_context.getConfiguration()
                 configuration:
                   '@type': type.googleapis.com/google.protobuf.StringValue
                   value: "auth_service"
-                # root_id MUST match registerRootContext() 2nd param
                 vm_config:
                   vm_id: "my_vm_id"
                   runtime: "envoy.wasm.runtime.v8"
@@ -72,7 +72,7 @@ static_resources:
               - match:
                   prefix: "/"
                 direct_response:
-                  status: 403
+                  status: 401
                   body:
                     inline_string: "not authorized!\n"
           http_filters:
@@ -130,7 +130,8 @@ static_resources:
         - endpoint:
             address:
               socket_address:
-                address: postman-echo.com
+                # when use postman-echo.com, it will return `HTTP/1.1 302 Found Redirecting to https://docs.postman-echo.com`
+                address: docs.postman-echo.com
                 port_value: 80
 admin:
   access_log_path: "/dev/null"

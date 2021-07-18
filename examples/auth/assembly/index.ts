@@ -55,7 +55,7 @@ class Auth extends Context {
           continue_request();
         } else {
           // we are denied, send a local response indicating that.
-          send_local_response(403, "not authorized", new ArrayBuffer(0), [], GrpcStatusValues.Unauthenticated);
+          send_local_response(401, "not authorized", new ArrayBuffer(0), [], GrpcStatusValues.Unauthenticated);
         }
       });
 
