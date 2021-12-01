@@ -14,7 +14,7 @@ This will return 200:
 curl localhost:8080/get
 ```
 
-This will return 403:
+This will return 401:
 ```
 curl localhost:8080/
 ```
