@@ -378,21 +378,38 @@ export function set_shared_data(key: string, value: ArrayBuffer, cas : u32 = 0):
   return imports.proxy_set_shared_data(changetype<usize>(key_buffer), key_buffer.byteLength, changetype<usize>(value), value.byteLength, cas);
 }
 
-export function register_shared_queue(queue_name: string, token: u32): WasmResultValues {
-  let queue_name_buffer = String.UTF8.encode(queue_name);
-  return imports.proxy_register_shared_queue(changetype<usize>(queue_name_buffer), queue_name_buffer.byteLength, token);
+class TokenSharedQueueResult {
+  result: WasmResultValues;
+  token: u32;
 }
 
-export function resolve_shared_queue(vm_id: string, queue_name: string, token: u32): WasmResultValues {
+export function register_shared_queue(queue_name: string): TokenSharedQueueResult {
+  let qid = globalU32Ref;
+  let queue_name_buffer = String.UTF8.encode(queue_name);
+  let result = new TokenSharedQueueResult();
+  result.result = imports.proxy_register_shared_queue(changetype<usize>(queue_name_buffer), queue_name_buffer.byteLength, qid.ptr());
+  if (result.result == WasmResultValues.Ok) {
+    result.token = qid.data;
+  }
+  return result;
+}
+
+export function resolve_shared_queue(vm_id: string, queue_name: string): TokenSharedQueueResult {
+  let qid = globalU32Ref;
   let vm_id_buffer = String.UTF8.encode(vm_id);
   let queue_name_buffer = String.UTF8.encode(queue_name);
-  return imports.proxy_resolve_shared_queue(changetype<usize>(vm_id_buffer), vm_id_buffer.byteLength,
-    changetype<usize>(queue_name_buffer), queue_name_buffer.byteLength, token);
+  let result = new TokenSharedQueueResult();
+  result.result = imports.proxy_resolve_shared_queue(changetype<usize>(vm_id_buffer), vm_id_buffer.byteLength,
+    changetype<usize>(queue_name_buffer), queue_name_buffer.byteLength, qid.ptr());
+  if (result.result == WasmResultValues.Ok) {
+    result.token = qid.data;
+  }
+  return result;
 }
 
 class DequeueSharedQueueResult {
   result: WasmResultValues;
-  data: ArrayBuffer;
+  data: ArrayBuffer|null;
 }
 export function dequeue_shared_queue(token: u32): DequeueSharedQueueResult {
   let result = new DequeueSharedQueueResult();
