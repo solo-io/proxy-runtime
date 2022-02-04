@@ -19,6 +19,9 @@ jobs:
       with: # All of theses inputs are optional
         tag_name: "v%s"
         tag_message: "v%s"
+        # !! NOTE: For this action to work, the last commit MUST match this pattern!
+        # since we squash commits, this means the PR name MUST match this pattern
+        # for an example, see https://github.com/solo-io/proxy-runtime/pull/50
         commit_pattern: "^Release (\\S+)"
       env: # More info about the environment variables in the README
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Leave this as is, it's automatically generated
