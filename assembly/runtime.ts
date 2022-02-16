@@ -856,6 +856,10 @@ export class RootContext extends BaseContext {
   // Returns false if the configuration is invalid.
   onConfigure(configuration_size: u32): bool {
     log(LogLevelValues.debug, "context id: " + this.context_id.toString() + ": onConfigure(configuration_size: " + configuration_size.toString() + ")");
+    if (configuration_size == 0) {
+      // No config
+      return true
+    }
     CHECK_RESULT(imports.proxy_get_buffer_bytes(BufferTypeValues.PluginConfiguration, 0, configuration_size, globalArrayBufferReference.bufferPtr(), configuration_size));
     this.configuration_ = String.UTF8.decode(globalArrayBufferReference.toArrayBuffer());
     log(LogLevelValues.debug, "context id: " + this.context_id.toString() + ": Updating this.configuration=" + this.configuration_);
