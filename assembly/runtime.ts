@@ -860,7 +860,7 @@ export class RootContext extends BaseContext {
       // No config
       return true
     }
-    CHECK_RESULT(imports.proxy_get_buffer_bytes(BufferTypeValues.PluginConfiguration, 0, configuration_size, globalArrayBufferReference.bufferPtr(), configuration_size));
+    CHECK_RESULT(imports.proxy_get_buffer_bytes(BufferTypeValues.PluginConfiguration, 0, configuration_size, globalArrayBufferReference.bufferPtr(), globalArrayBufferReference.sizePtr()));
     this.configuration_ = String.UTF8.decode(globalArrayBufferReference.toArrayBuffer());
     log(LogLevelValues.debug, "context id: " + this.context_id.toString() + ": Updating this.configuration=" + this.configuration_);
     return true;
