@@ -4,7 +4,7 @@ static_resources:
     address:
       socket_address:
         address: 0.0.0.0
-        port_value: 8080
+        port_value: 8088
     filter_chains:
     - filters:
       - name: envoy.filters.network.http_connection_manager
@@ -41,9 +41,11 @@ static_resources:
                   code:
                     # See https://github.com/envoyproxy/envoy-wasm/blob/master/api/envoy/config/core/v3/base.proto
                     local:
-                      filename: build/optimized.wasm
+                      filename: build/release.wasm
 
           - name: envoy.filters.http.router
+            typed_config:
+              '@type': type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
   - name: auth_service
     address:
       socket_address:
@@ -77,6 +79,8 @@ static_resources:
                     inline_string: "not authorized!\n"
           http_filters:
           - name: envoy.filters.http.router
+            typed_config:
+              '@type': type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
   - name: upstream
     address:
       socket_address:
@@ -104,6 +108,8 @@ static_resources:
                     inline_string: "hello world!\n"
           http_filters:
           - name: envoy.filters.http.router
+            typed_config:
+              '@type': type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
 
   clusters:
   - name: auth_service

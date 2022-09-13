@@ -1,13 +1,13 @@
 {
   "scripts": {
-    "asbuild:untouched": "asc assembly/index.ts -b build/untouched.wasm --use abort=abort_proc_exit -t build/untouched.wat --sourceMap http://127.0.0.1:8081/build/untouched.wasm.map --debug",
-    "asbuild:optimized": "asc assembly/index.ts -b build/optimized.wasm --use abort=abort_proc_exit -t build/optimized.wat --sourceMap --optimize",
-    "asbuild": "npm run asbuild:untouched && npm run asbuild:optimized",
+    "asbuild:debug": "asc assembly/index.ts --target debug",
+    "asbuild:release": "asc assembly/index.ts --target release",
+    "asbuild": "npm run asbuild:debug && npm run asbuild:release",
     "server": "ws --log.format dev",
     "docs": "typedoc --out ./docs assembly --ignoreCompilerErrors --name 'AssemblyScript Proxy Runtime'"
   },
   "devDependencies": {
-    "assemblyscript": "^0.19.22",
+    "assemblyscript": "^0.21.3",
     "http-server": "^0.12.3",
     "local-web-server": "^3.0.7",
     "minimist": ">=1.2.2",
@@ -20,7 +20,6 @@
   "directories": {
     "doc": "docs"
   },
-  "dependencies": {},
   "repository": {
     "type": "git",
     "url": "git+https://github.com/solo-io/proxy-runtime.git"
@@ -39,5 +38,12 @@
     "/assembly",
     "package-lock.json",
     "index.js"
-  ]
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./build/release.js",
+      "types": "./build/release.d.ts"
+    }
+  }
 }

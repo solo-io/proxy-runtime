@@ -1,7 +1,12 @@
 
-export * from "@solo-io/proxy-runtime/proxy"; // this exports the required functions for the proxy to interact with us.
-//this.setEffectiveContext(callback.origin_context_id);
-import { RootContext, Context, BaseContext, registerRootContext, Headers, log, LogLevelValues, HeaderPair, FilterHeadersStatusValues, FilterDataStatusValues, FilterTrailersStatusValues, GrpcStatusValues, WasmResultValues, stream_context, send_local_response, continue_request } from "@solo-io/proxy-runtime";
+export * from "@solo-io/proxy-runtime/assembly/proxy"; // this exports the required functions for the proxy to interact with us.
+
+import {
+  RootContext, Context, BaseContext, registerRootContext,
+  log, LogLevelValues, FilterHeadersStatusValues, FilterDataStatusValues,
+  FilterTrailersStatusValues, GrpcStatusValues, WasmResultValues,
+  stream_context, send_local_response, continue_request, get_buffer_bytes, BufferTypeValues
+} from "@solo-io/proxy-runtime/assembly";
 
 class AuthRoot extends RootContext {
 
@@ -47,6 +52,9 @@ class Auth extends Context {
             allow = true;
           }
         }
+
+         let buf = get_buffer_bytes(BufferTypeValues.HttpCallResponseBody, 0, body_size as u32);
+        log(LogLevelValues.debug, "auth body: " + String.UTF8.decode(buf));
 
         if (allow) {
           stream_context.headers.request.add("added-header", "authorized");

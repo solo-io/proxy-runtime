@@ -1,12 +1,12 @@
 
-export * from "@solo-io/proxy-runtime/proxy"; // this exports the required functions for the proxy to interact with us.
+export * from "@solo-io/proxy-runtime/assembly/proxy"; // this exports the required functions for the proxy to interact with us.
 //this.setEffectiveContext(callback.origin_context_id);
 import {
   RootContext, Context, BaseContext, registerRootContext, Headers, makeHeaderPair, log,
   BufferTypeValues, LogLevelValues, FilterHeadersStatusValues, FilterDataStatusValues,
   FilterTrailersStatusValues, GrpcStatusValues, WasmResultValues, stream_context,
   send_local_response, set_tick_period_milliseconds, get_buffer_bytes, set_shared_data, get_shared_data
-} from "@solo-io/proxy-runtime";
+} from "@solo-io/proxy-runtime/assembly";
 
 class AuthSingleton extends RootContext {
 
