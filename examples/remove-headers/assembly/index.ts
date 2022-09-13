@@ -1,4 +1,4 @@
-export * from "@solo-io/proxy-runtime/proxy";
+export * from "@solo-io/proxy-runtime/assembly/proxy";
 import {
   RootContext,
   Context,
@@ -8,7 +8,7 @@ import {
   stream_context,
   log,
   LogLevelValues
-} from "@solo-io/proxy-runtime";
+} from "@solo-io/proxy-runtime/assembly";
 class RemoveHeadersRoot extends RootContext {
   createContext(context_id: u32): Context {
     return new RemoveHeader(context_id, this);

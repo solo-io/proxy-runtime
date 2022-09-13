@@ -1,8 +1,6 @@
-// import {LogLevel, WasmResult, MetricType, PeerType, HeaderMapType, BufferType, BufferFlags} from "./exports";
 import * as imports from "./imports";
 import { free } from "./malloc";
-import { proc_exit } from "bindings/wasi_unstable";
-
+import { proc_exit } from "./wasi_unstable";
 
 // abort function.
 // use with:
@@ -10,8 +8,8 @@ import { proc_exit } from "bindings/wasi_unstable";
 // compiler flag
 // @ts-ignore: decorator
 @global
-export function abort_proc_exit(message: string | null, fileName: string | null, lineNumber: u32, columnNumber: u32): void {
-  let logMessage = "";
+  export function abort_proc_exit(message: string | null, fileName: string | null, lineNumber: u32, columnNumber: u32): void {
+  let logMessage = "abort: ";
   if (message !== null) {
     logMessage += message.toString();
   }
@@ -89,7 +87,7 @@ export class HeaderPair {
   }
 }
 
-export function makeHeaderPair(key: string, value: string) : HeaderPair {
+export function makeHeaderPair(key: string, value: string): HeaderPair {
   let key_arr = String.UTF8.encode(key);
   let value_arr = String.UTF8.encode(value);
   return new HeaderPair(key_arr, value_arr);
@@ -355,9 +353,9 @@ export function send_local_response(response_code: u32, response_code_details: s
 
 export function clear_route_cache(): WasmResultValues { return imports.proxy_clear_route_cache(); }
 class GetSharedData {
-  value: ArrayBuffer|null;
+  value: ArrayBuffer | null;
   result: WasmResultValues;
-  cas: u32;
+  cas: usize;
 }
 
 export function get_shared_data(key: string): GetSharedData {
@@ -365,7 +363,7 @@ export function get_shared_data(key: string): GetSharedData {
   let cas = globalUsizeRef;
   let data = globalArrayBufferReference;
   let result = new GetSharedData();
-  result.result =  imports.proxy_get_shared_data(changetype<usize>(key_buffer), key_buffer.byteLength, data.bufferPtr(), data.sizePtr(), cas.ptr());
+  result.result = imports.proxy_get_shared_data(changetype<usize>(key_buffer), key_buffer.byteLength, data.bufferPtr(), data.sizePtr(), cas.ptr());
   if (result.result == WasmResultValues.Ok) {
     result.value = data.toArrayBuffer();
     result.cas = cas.data;
@@ -373,7 +371,7 @@ export function get_shared_data(key: string): GetSharedData {
   return result;
 }
 
-export function set_shared_data(key: string, value: ArrayBuffer, cas : u32 = 0): WasmResultValues {
+export function set_shared_data(key: string, value: ArrayBuffer, cas: u32 = 0): WasmResultValues {
   const key_buffer = String.UTF8.encode(key);
   return imports.proxy_set_shared_data(changetype<usize>(key_buffer), key_buffer.byteLength, changetype<usize>(value), value.byteLength, cas);
 }
@@ -409,7 +407,7 @@ export function resolve_shared_queue(vm_id: string, queue_name: string): TokenSh
 
 class DequeueSharedQueueResult {
   result: WasmResultValues;
-  data: ArrayBuffer|null;
+  data: ArrayBuffer | null;
 }
 export function dequeue_shared_queue(token: u32): DequeueSharedQueueResult {
   let result = new DequeueSharedQueueResult();
@@ -734,12 +732,12 @@ export function call_foreign_function(function_name: string, argument: string): 
   let argument_name_buffer = String.UTF8.encode(argument);
 
   CHECK_RESULT(imports.proxy_call_foreign_function(
-      changetype<usize>(function_name_buffer),
-      function_name_buffer.byteLength,
-      changetype<usize>(argument_name_buffer),
-      argument_name_buffer.byteLength,
-      globalArrayBufferReference.bufferPtr(),
-      globalArrayBufferReference.sizePtr()));
+    changetype<usize>(function_name_buffer),
+    function_name_buffer.byteLength,
+    changetype<usize>(argument_name_buffer),
+    argument_name_buffer.byteLength,
+    globalArrayBufferReference.bufferPtr(),
+    globalArrayBufferReference.sizePtr()));
   return globalArrayBufferReference.toArrayBuffer();
 }
 /////// runtime support

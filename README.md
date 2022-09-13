@@ -12,8 +12,8 @@ npx asinit .
 
 add `--use abort=abort_proc_exit` to the `asc` in packages.json. for example:
 ```json
-    "asbuild:untouched": "asc assembly/index.ts -b build/untouched.wasm --use abort=abort_proc_exit -t build/untouched.wat --sourceMap http://127.0.0.1:8081/build/untouched.wasm.map --debug",
-    "asbuild:optimized": "asc assembly/index.ts -b build/optimized.wasm --use abort=abort_proc_exit -t build/optimized.wat --sourceMap --optimize",
+    "asbuild:debug": "asc assembly/index.ts -b build/untouched.wasm --use abort=abort_proc_exit -t build/untouched.wat --sourceMap http://127.0.0.1:8081/build/untouched.wasm.map --debug",
+    "asbuild:release": "asc assembly/index.ts -b build/optimized.wasm --use abort=abort_proc_exit -t build/optimized.wat --sourceMap --optimize",
 ```
 
 Add `"@solo-io/proxy-runtime": "file:/home/yuval/Projects/solo/proxy-assemblyscript"` to your dependencies.

@@ -1,6 +1,6 @@
 
-export * from "@solo-io/proxy-runtime/proxy"; // this exports the required functions for the proxy to interact with us.
-import { RootContext, Context, registerRootContext, FilterHeadersStatusValues, stream_context } from "@solo-io/proxy-runtime";
+export * from "@solo-io/proxy-runtime/assembly/proxy"; // this exports the required functions for the proxy to interact with us.
+import { RootContext, Context, registerRootContext, FilterHeadersStatusValues, stream_context } from "@solo-io/proxy-runtime/assembly";
 
 class AddHeaderRoot extends RootContext {
   createContext(context_id: u32): Context {

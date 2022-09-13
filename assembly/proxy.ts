@@ -1,2 +1,2 @@
-export * from "./malloc";
+export { malloc } from "./malloc";
 export * from "./exports";
