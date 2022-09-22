@@ -41,7 +41,7 @@ static_resources:
                   code:
                     # See https://github.com/envoyproxy/envoy-wasm/blob/master/api/envoy/config/core/v3/base.proto
                     local:
-                      filename: build/optimized.wasm
+                      filename: build/release.wasm
 
           - name: envoy.filters.http.router
   - name: auth_service
@@ -155,4 +155,4 @@ bootstrap_extensions:
         code:
           # See https://github.com/envoyproxy/envoy-wasm/blob/master/api/envoy/config/core/v3/base.proto
           local:
-            filename: build/optimized.wasm
+            filename: build/release.wasm
