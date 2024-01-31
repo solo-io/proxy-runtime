@@ -151,6 +151,7 @@
             proxy_remove_header_map_value(typ, key_ptr, key_size) { return 0; },
             proxy_get_header_map_size(typ, size) { return 0; },
             proxy_get_buffer_bytes(typ, start, length, ptr, size) { return 0; },
+            proxy_set_buffer_bytes(typ, start, length, ptr, size) { return 0; },
             proxy_get_buffer_status(typ, length_ptr, flags_ptr) { return 0; },
             proxy_http_call(uri_ptr, uri_size, header_pairs_ptr, header_pairs_size, body_ptr, body_size, trailer_pairs_ptr, trailer_pairs_size, timeout_milliseconds, token_ptr) { return 0; },
             proxy_grpc_call(service_ptr, service_size, service_name_ptr, service_name_size, method_name_ptr, method_name_size, request_ptr, request_size, timeout_milliseconds, token_ptr) { return 0; },

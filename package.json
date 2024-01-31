@@ -7,11 +7,11 @@
     "docs": "typedoc --out ./docs assembly --ignoreCompilerErrors --name 'AssemblyScript Proxy Runtime'"
   },
   "devDependencies": {
-    "assemblyscript": "^0.21.3",
+    "assemblyscript": "^0.27.24",
     "http-server": "^0.12.3",
     "local-web-server": "^3.0.7",
     "minimist": ">=1.2.2",
-    "typedoc": "^0.16.11"
+    "typedoc": "0.19.2"
   },
   "name": "@solo-io/proxy-runtime",
   "description": "Use this SDK to write extensions for the proxy WASM ABI",
