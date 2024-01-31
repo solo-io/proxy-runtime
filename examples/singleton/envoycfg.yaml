@@ -41,9 +41,11 @@ static_resources:
                   code:
                     # See https://github.com/envoyproxy/envoy-wasm/blob/master/api/envoy/config/core/v3/base.proto
                     local:
-                      filename: build/optimized.wasm
+                      filename: build/release.wasm
 
           - name: envoy.filters.http.router
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
   - name: auth_service
     address:
       socket_address:
@@ -71,6 +73,8 @@ static_resources:
                     inline_string: 'foo'
           http_filters:
           - name: envoy.filters.http.router
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
   - name: upstream
     address:
       socket_address:
@@ -98,6 +102,8 @@ static_resources:
                     inline_string: "hello world!\n"
           http_filters:
           - name: envoy.filters.http.router
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
 
   clusters:
   - name: auth_service
@@ -155,4 +161,4 @@ bootstrap_extensions:
         code:
           # See https://github.com/envoyproxy/envoy-wasm/blob/master/api/envoy/config/core/v3/base.proto
           local:
-            filename: build/optimized.wasm
+            filename: build/release.wasm

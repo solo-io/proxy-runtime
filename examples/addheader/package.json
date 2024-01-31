@@ -9,6 +9,6 @@
     "@solo-io/proxy-runtime": "file:../.."
   },
   "devDependencies": {
-    "assemblyscript": "^0.21.3"
+    "assemblyscript": "^0.27.24"
   }
 }

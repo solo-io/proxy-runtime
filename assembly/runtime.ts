@@ -599,6 +599,12 @@ export function get_buffer_bytes(typ: BufferTypeValues, start: u32, length: u32)
   return new ArrayBuffer(0);
 }
 
+// unclear if start and length are 64 or 32
+export function set_buffer_bytes(typ: BufferTypeValues, start: u32, size: u32, value: ArrayBuffer): WasmResultValues {
+  let result = imports.proxy_set_buffer_bytes(typ, start, size, changetype<usize>(value), value.byteLength);
+  return result;
+}
+
 // returning tuples is not supported.
 class BufferStatusResult {
   result: WasmResultValues;
